@@ -1,0 +1,19 @@
+{
+  "name": "job-hunt",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Automatización de búsqueda de empleo: fetch multifuente → elegibilidad + scoring (keyword + semántico) → dashboard de revisión.",
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "fetch": "node --env-file=.env sources/fetch.mjs",
+    "score": "node --env-file=.env scoring/score.mjs",
+    "learn": "node --env-file=.env scoring/learn.mjs",
+    "embed": "node --env-file=.env scoring/embed.mjs",
+    "dash": "node --env-file=.env review/server.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "boost_keywords": [],
+  "penalize_keywords": [],
+  "rejected_companies": [],
+  "paused_companies": [],
+  "already_applied": [],
+  "peruvian_companies": ["[local companies in your country you do NOT want to apply to]"],
+  "_note": "Preferencias aprendidas en la fase de entrenamiento (feedback del candidato). 'peruvian_companies' = empresas locales a evitar (renómbralo si no aplica)."
+}

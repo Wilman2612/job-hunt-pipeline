@@ -1,0 +1,18 @@
+node_modules/
+.env
+
+# Datos generados (ofertas crudas, logs, snapshots del navegador)
+data/
+.playwright-cli/
+
+# Perfil personal — NO se versiona. Copia los *.example.* y rellénalos con tus datos.
+profile/digest.md
+profile/target.json
+profile/learned.json
+profile/cv_base.md
+
+# Salidas con datos personales (CVs generados/refinados)
+applications/
+*.final.md
+*.docx
+*.pdf

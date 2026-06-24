@@ -1,0 +1,35 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: jobhunt-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jobhunt
+      POSTGRES_PASSWORD: jobhunt_local
+      POSTGRES_DB: jobhunt
+    ports:
+      - "5433:5432"   # host 5433 para no chocar con un Postgres local en 5432
+    volumes:
+      - jobhunt_pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobhunt -d jobhunt"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    container_name: jobhunt-app
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      # dentro de la red de compose el host del Postgres es `db`, no localhost
+      DATABASE_URL: postgres://jobhunt:jobhunt_local@db:5432/jobhunt
+    ports:
+      - "5173:5173"   # dashboard de revisión
+
+volumes:
+  jobhunt_pgdata:

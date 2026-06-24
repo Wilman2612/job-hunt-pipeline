@@ -1,0 +1,36 @@
+{
+  "candidate": "[YOUR NAME]",
+  "based_in": "[CITY, COUNTRY]",
+  "work_authorization": "[e.g. needs remote / global or LATAM-hiring foreign companies]",
+  "current_comp": {
+    "approx_annual_usd_equivalent": 0,
+    "note": "[context for what a foreign remote role should beat]"
+  },
+  "salary_floor_usd_year": 45000,
+  "salary_target_usd_year": 65000,
+  "target_roles": [
+    "Generative AI Engineer",
+    "AI Agent Engineer",
+    "Senior AI Engineer",
+    "Applied AI Engineer",
+    "LLM Engineer",
+    "Forward Deployed Engineer (AI)"
+  ],
+  "avoid_roles": ["pure ML research", "data analyst", "pure frontend", "QA only", "manager-only / no hands-on"],
+  "must_have_signals": {
+    "remote": true,
+    "regions_ok": ["Worldwide", "Global", "Americas", "LATAM", "US (if hires contractors abroad)"],
+    "regions_avoid_hard": ["US-only W2 / must be US resident", "EU-only onsite"]
+  },
+  "core_keywords": [
+    "ai engineer", "ai developer", "generative ai", "genai", "llm", "agent", "agentic",
+    "rag", "retrieval augmented", "multi-agent", "mcp", "applied ai", "vector database",
+    "embeddings", "langchain", "langgraph", "openai", "anthropic", "claude"
+  ],
+  "strong_stack_match": [
+    "typescript", "node", "python", "aws", "docker", "kubernetes", "terraform",
+    "postgresql", "pgvector", "supabase", "cloudflare"
+  ],
+  "differentiators": ["[your edge #1]", "[your edge #2]"],
+  "gaps": ["[known gap to frame as next area]"]
+}
