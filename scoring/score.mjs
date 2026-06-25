@@ -58,9 +58,15 @@ function score(j, elig) {
   bd.salary = sal;
   s += sal;
 
-  // 6) Role exclusions
-  if (/(data analyst|qa engineer|frontend engineer|research scientist|recruiter|evaluator)/.test(title)) {
+  // 6) Role exclusions — title types the candidate is not (engineering BUILD-AI roles only).
+  //    Flag "Title in avoid list" is also consumed by analyze-queue to skip these before the LLM.
+  if (/(data analyst|qa engineer|frontend engineer|research scientist|recruiter|evaluator|solutions architect|pre-?sales|sales engineer|account executive|product manager|program manager|engineering manager|civil engineer|people ops|talent acquisition|data center|field technician)/.test(title)) {
     bd.exclusion = -25; flags.push("Title in avoid list"); s -= 25;
+  }
+  // Defense/weapons — candidate avoids (digest). Match on COMPANY + specific titles, NOT body "defense"
+  // (which appears in "defense in depth", "last line of defense", etc.).
+  if (/\b(shield ?ai|anduril|lockheed|raytheon|northrop|general dynamics|bae systems|palantir|saab)\b/.test(lc(j.company)) || /(weapons|munitions|warfare|missile|defense engineer)/.test(title)) {
+    bd.defense = -40; flags.push("Defense/weapons (avoid)"); s -= 40;
   }
 
   // 7) Learned preferences

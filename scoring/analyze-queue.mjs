@@ -60,6 +60,7 @@ const { rows } = await q(
    WHERE enrich IS NULL AND raw_text IS NOT NULL AND length(raw_text) > 40
      AND (eligibility->>'eligibleForPeru')='true'
      AND semantic >= $2
+     AND NOT (flags && ARRAY['Title in avoid list','Defense/weapons (avoid)']::text[])
    ORDER BY semantic DESC NULLS LAST, score DESC NULLS LAST
    LIMIT $1`,
   [LIMIT, FLOOR]
