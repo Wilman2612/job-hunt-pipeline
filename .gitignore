@@ -19,3 +19,4 @@ applications/
 
 # Skills locales — contienen perfil personal, salario, estrategia. NO se versiona.
 .claude/skills/
+# Agent definitions live in .claude/agents/ and ARE versioned (no personal data).
