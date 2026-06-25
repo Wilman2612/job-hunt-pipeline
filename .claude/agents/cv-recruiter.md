@@ -15,7 +15,6 @@ Decide whether the CV sells this candidate for this specific job, and surface ev
 A CV and a job description — pasted in the prompt, or as file paths you Read.
 
 # What to judge (grounded in public CV standards — Toptal tech-resume guide, The Interview Guys, MIT CAPD — not vibes)
-If `C:/Users/wilma/Downloads/outputs/tech-cv-builder/SKILL.md` is readable, also use its quality bar. Apply these objective criteria:
 - **Quantified achievements, not duties.** Bullets show what was built + tech + a measurable outcome. Recruiters favor metrics; flag a CV where almost no bullet has a number, and penalize "responsible for…" phrasing.
 - **Role-aligned Summary (2-4 lines).** For 5+ years of experience, a sharp summary positioning technical focus + fit for THIS role. Penalize its absence or a generic one.
 - **Skills-based fit.** Screening is increasingly skills-first: are the job's required skills visible and credible, backed by experience/projects (not just listed)?
