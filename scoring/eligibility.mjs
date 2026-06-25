@@ -45,6 +45,8 @@ const CITY_COUNTRY = {
   "barcelona": "spain", "lisbon": "portugal", "lisboa": "portugal", "amsterdam": "netherlands", "dublin": "ireland", "tel aviv": "israel",
 };
 const US_STATE = /,\s?(ca|ny|tx|wa|ma|il|wi|co|fl|ga|nc|va|az|or|pa|nj|mn|oh|mi|dc)\b/;
+// Full US state names (e.g. "Remote - California", "New York") — abbreviations alone miss these.
+const US_STATE_NAMES = /\b(california|texas|florida|new york|massachusetts|illinois|washington d\.?c\.?|washington state|colorado|virginia|arizona|oregon|pennsylvania|new jersey|minnesota|north carolina|tennessee|utah|maryland|d\.?c\.?)\b/;
 
 const mk = (region, eligibleForPeru, evidence) => ({ region, eligibleForPeru, evidence });
 const findIn = (hay, list) => list.find((c) => hay.includes(c));
@@ -52,7 +54,7 @@ const findIn = (hay, list) => list.find((c) => hay.includes(c));
 function detectCountry(loc) {
   let c = findIn(loc, COUNTRIES) || Object.keys(CITY_COUNTRY).find((x) => loc.includes(x));
   if (c && CITY_COUNTRY[c]) c = CITY_COUNTRY[c];
-  if (!c && US_STATE.test(loc)) c = "united states";
+  if (!c && (US_STATE.test(loc) || US_STATE_NAMES.test(loc))) c = "united states";
   return c || null;
 }
 
@@ -73,23 +75,27 @@ export function classify(location = "", rawText = "", source = "linkedin") {
   // 2) Onsite/hybrid without fully remote (any source) → not useful.
   if (RX.onsite.test(hay) && !RX.remoteFull.test(hay)) return mk("restricted", false, "onsite/hybrid — not fully remote");
 
-  // 3) Explicit openness to the candidate's region (any source).
+  // 3) Explicit openness to the candidate's REGION — Peru/LATAM are specific signals, honored anywhere.
   if (RX.peru.test(loc) || RX.peru.test(hay)) return mk("latam_ok", true, "mentions Peru/Lima (verify non-Peruvian company)");
   if (RX.latamOpen.test(hay)) return mk("latam_ok", true, "explicit LATAM/Americas openness");
-  if (RX.worldwide.test(hay)) return mk("worldwide", true, "explicit worldwide/anywhere remote");
 
   const country = detectCountry(loc) || (strict ? detectCountry(lc(rawText).slice(0, 300)) : null);
 
-  // 4) STRICT LinkedIn (includes US rule): location ties posting to its country,
-  //    unless explicit openness (already checked above).
+  // 4) STRICT sources: a country in the LOCATION field is authoritative and OVERRIDES body "worldwide/global"
+  //    boilerplate. A "San Francisco" role whose blurb says "global leader / customers worldwide" is US-only,
+  //    NOT worldwide. Checked BEFORE the worldwide signal below — this is the fix for the ~895 mislabeled jobs.
   if (strict) {
-    if (country && US_NAMES.includes(country)) return mk("us_only", false, "LinkedIn: US location without explicit LATAM openness");
-    if (country && !["peru", "perú"].includes(country)) return mk(`country:${country}`, false, `LinkedIn: location ${country}, no explicit openness`);
-    return mk("unknown", true, "LinkedIn remote with no country or openness — verify");
+    if (country && US_NAMES.includes(country)) return mk("us_only", false, `US location (${location}); body "worldwide" is boilerplate, not openness`);
+    if (country && !["peru", "perú"].includes(country)) return mk(`country:${country}`, false, `location ${country}, no explicit LATAM/Peru openness`);
   }
 
-  // 5) LAX remote-first boards: each source has its own location/region field.
-  //    No explicit hard restriction (step 1) and not onsite → eligible by default.
+  // 5) Worldwide/anywhere openness — reached only when no specific country pins the posting.
+  if (RX.worldwide.test(hay)) return mk("worldwide", true, "explicit worldwide/anywhere remote");
+
+  // 6) STRICT remote with no detectable country and no openness → eligible but verify.
+  if (strict) return mk("unknown", true, "remote with no country or openness — verify");
+
+  // 7) LAX remote-first boards: no hard restriction and not onsite → eligible by default.
   return mk(country ? `remote:${country}` : "remote", true, `remote-first board (${source}) — no hard restriction`);
 }
 
