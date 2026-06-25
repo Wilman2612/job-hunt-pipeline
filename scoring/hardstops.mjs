@@ -1,7 +1,7 @@
-// Reporte de hard-stops (NO bloquea empresas — geo es POR-ANUNCIO vía recheck-geo + clasificador
-// estricto para ATS). Aquí solo se muestra el embudo del pozo de análisis y se confirma que el
-// SELECT de selección (jobs_selectable / getSelectable) ya trae los hard-stops filtrados.
-// Uso: node --env-file=.env scoring/hardstops.mjs
+// Hard-stops report (does NOT block companies — geo is PER-POSTING via recheck-geo + strict
+// classifier for ATS). Here we only show the analysis pool funnel and confirm that the
+// selection SELECT (jobs_selectable / getSelectable) already has hard-stops filtered.
+// Usage: node --env-file=.env scoring/hardstops.mjs
 import { q, closePool, getSelectable } from "../lib/store.mjs";
 
 const FLOOR = 45000;
@@ -14,9 +14,9 @@ const { rows } = await q(`SELECT
   FROM jobs`);
 const r = rows[0];
 const selectable = await getSelectable({ floor: FLOOR });
-console.error("Embudo del pozo:");
-console.error(`  total: ${r.total} | analizadas: ${r.analizadas} | sin analizar: ${r.sin_analizar}`);
-console.error(`  hard-stop GEO (por-anuncio): ${r.stop_geo}`);
-console.error(`  hard-stop SALARIO (<$${FLOOR}): ${r.stop_salario}`);
-console.error(`  SELECTABLE (lo que vale Sonnet): ${selectable.length}`);
+console.error("Pool funnel:");
+console.error(`  total: ${r.total} | analyzed: ${r.analizadas} | not analyzed: ${r.sin_analizar}`);
+console.error(`  hard-stop GEO (per-posting): ${r.stop_geo}`);
+console.error(`  hard-stop SALARY (<$${FLOOR}): ${r.stop_salario}`);
+console.error(`  SELECTABLE (worth spending Sonnet on): ${selectable.length}`);
 await closePool();

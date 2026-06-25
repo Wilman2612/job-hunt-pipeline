@@ -16,3 +16,6 @@ applications/
 *.final.md
 *.docx
 *.pdf
+
+# Skills locales — contienen perfil personal, salario, estrategia. NO se versiona.
+.claude/skills/

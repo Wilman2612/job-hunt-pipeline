@@ -1,15 +1,15 @@
-// Guarda el análisis de un subagente en jobs.enrich (+ want_score/qual_score).
-// El JSON se pasa por STDIN (evita problemas de escaping en argumentos).
-// Uso: echo '<json>' | node --env-file=.env scripts/save-enrich.mjs <source> <id>
+// Saves a subagent's analysis into jobs.enrich (+ want_score/qual_score).
+// JSON is passed via STDIN (avoids escaping problems in arguments).
+// Usage: echo '<json>' | node --env-file=.env scripts/save-enrich.mjs <source> <id>
 import { q, closePool } from "../lib/store.mjs";
 
 const [source, id] = process.argv.slice(2);
-if (!source || !id) { console.error("uso: save-enrich.mjs <source> <id> (json por stdin)"); process.exit(1); }
+if (!source || !id) { console.error("usage: save-enrich.mjs <source> <id> (json via stdin)"); process.exit(1); }
 
 let buf = "";
 for await (const chunk of process.stdin) buf += chunk;
 let obj;
-try { obj = JSON.parse(buf); } catch (e) { console.error("JSON inválido: " + e.message); process.exit(1); }
+try { obj = JSON.parse(buf); } catch (e) { console.error("Invalid JSON: " + e.message); process.exit(1); }
 
 const clampInt = (v) => (v == null || isNaN(+v)) ? null : Math.max(0, Math.min(100, Math.round(+v)));
 const want = clampInt(obj.want);

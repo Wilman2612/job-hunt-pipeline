@@ -1,11 +1,11 @@
-// Lista candidatas para enriquecer (top-N por similitud semántica, aún sin enrich).
-// El orquestador lo usa para armar lotes y repartir a subagentes.
-// Uso: node --env-file=.env scripts/candidates.mjs [--top 40] [--all]
+// Lists candidates for enrichment (top-N by semantic similarity, not yet enriched).
+// The orchestrator uses this to build batches and distribute to subagents.
+// Usage: node --env-file=.env scripts/candidates.mjs [--top 40] [--all]
 import { q, closePool } from "../lib/store.mjs";
 
 const args = process.argv.slice(2);
 const top = Number((args.find((a) => a.startsWith("--top="))?.split("=")[1]) || (args.includes("--top") ? args[args.indexOf("--top") + 1] : 40));
-const all = args.includes("--all"); // incluir ya enriquecidas (re-análisis)
+const all = args.includes("--all"); // include already enriched (re-analysis)
 
 const { rows } = await q(
   `SELECT source, ext_id, title, company, score, round(semantic::numeric,3) AS semantic

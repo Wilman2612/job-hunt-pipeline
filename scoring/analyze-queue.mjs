@@ -1,16 +1,16 @@
-// Worker autónomo de análisis: procesa la cola de ofertas elegibles SIN analizar, en orden de
-// prioridad (similitud semántica desc — mejor primero), llamando a Claude con el spec ya calibrado.
-// El texto va script → LLM → Postgres (no infla el contexto de quien orquesta). Resumible: salta lo
-// ya analizado. Usa Claude Sonnet a propósito: el razonamiento estricto de los "hard stops"
-// (geo, requisitos imposibles, salario) y el JSON estructurado lo justifican (ver README).
-// Uso: node --env-file=.env scoring/analyze-queue.mjs [--limit=N] [--conc=4]
+// Autonomous analysis worker: processes the queue of eligible UNANALYZED postings, in priority
+// order (semantic similarity desc — best first), calling Claude with the calibrated spec.
+// Text flows script → LLM → Postgres (does not inflate the orchestrator's context). Resumable: skips
+// already analyzed postings. Uses Claude Sonnet intentionally: strict reasoning for "hard stops"
+// (geo, impossible requirements, salary) and structured JSON justify it (see README).
+// Usage: node --env-file=.env scoring/analyze-queue.mjs [--limit=N] [--conc=4]
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { q, ROOT, closePool } from "../lib/store.mjs";
 
 const KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.ANALYZE_MODEL || "claude-3-5-sonnet-latest";
-if (!KEY) { console.error("Falta ANTHROPIC_API_KEY en .env"); process.exit(1); }
+if (!KEY) { console.error("Missing ANTHROPIC_API_KEY in .env"); process.exit(1); }
 
 const args = process.argv.slice(2);
 const LIMIT = Number(args.find((a) => a.startsWith("--limit="))?.split("=")[1] || 99999);
@@ -19,15 +19,15 @@ const CONC = Number(args.find((a) => a.startsWith("--conc="))?.split("=")[1] || 
 const digest = await readFile(path.join(ROOT, "profile/digest.md"), "utf8");
 const spec = await readFile(path.join(ROOT, "profile/enrich-spec.md"), "utf8");
 
-const SYSTEM = `Eres el head hunter riguroso del candidato. Analizas UNA oferta y devuelves SOLO un objeto JSON (sin texto extra, sin markdown).
+const SYSTEM = `You are the candidate's rigorous head hunter. You analyze ONE posting and return ONLY a JSON object (no extra text, no markdown).
 
-PERFIL DEL CANDIDATO:
+CANDIDATE PROFILE:
 ${digest}
 
-SPEC DE ANÁLISIS (síguelo al pie de la letra; incluye TODAS las claves):
+ANALYSIS SPEC (follow it to the letter; include ALL keys):
 ${spec}`;
 
-// Extrae el primer objeto JSON del texto (Claude a veces lo envuelve en prosa o fences).
+// Extracts the first JSON object from the text (Claude sometimes wraps it in prose or fences).
 function parseJson(text) {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   const raw = fenced ? fenced[1] : text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
@@ -35,11 +35,11 @@ function parseJson(text) {
 }
 
 async function analyze(job) {
-  const user = `OFERTA (source=${job.source}):
-TÍTULO: ${job.title}
-EMPRESA: ${job.company}
-UBICACIÓN: ${job.location}
-DESCRIPCIÓN:
+  const user = `POSTING (source=${job.source}):
+TITLE: ${job.title}
+COMPANY: ${job.company}
+LOCATION: ${job.location}
+DESCRIPTION:
 ${(job.raw_text || "").slice(0, 9000)}`;
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -65,7 +65,7 @@ async function save(job, e) {
   );
 }
 
-// Cola: elegibles, con texto, sin analizar, mejor-primero por similitud semántica.
+// Queue: eligible, with text, not yet analyzed, best-first by semantic similarity.
 const { rows } = await q(
   `SELECT source, ext_id, title, company, location, raw_text FROM jobs
    WHERE enrich IS NULL AND raw_text IS NOT NULL AND length(raw_text) > 40
@@ -75,7 +75,7 @@ const { rows } = await q(
   [LIMIT]
 );
 
-console.error(`Cola: ${rows.length} ofertas elegibles sin analizar. Modelo: ${MODEL}, concurrencia: ${CONC}.`);
+console.error(`Queue: ${rows.length} eligible postings not yet analyzed. Model: ${MODEL}, concurrency: ${CONC}.`);
 let done = 0, fail = 0;
 const queue = [...rows];
 async function worker() {
@@ -83,9 +83,9 @@ async function worker() {
     const job = queue.shift();
     try { await save(job, await analyze(job)); done++; }
     catch (err) { fail++; console.error(`  ✗ ${job.company}: ${err.message}`); }
-    if ((done + fail) % 25 === 0) process.stderr.write(`  progreso ${done + fail}/${rows.length} (ok ${done}, fail ${fail})\n`);
+    if ((done + fail) % 25 === 0) process.stderr.write(`  progress ${done + fail}/${rows.length} (ok ${done}, fail ${fail})\n`);
   }
 }
 await Promise.all(Array.from({ length: CONC }, () => worker()));
-console.error(`\nAnálisis en cola: ${done} guardadas, ${fail} fallidas.`);
+console.error(`\nQueue analysis: ${done} saved, ${fail} failed.`);
 await closePool();

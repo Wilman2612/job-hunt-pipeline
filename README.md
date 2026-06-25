@@ -1,131 +1,115 @@
 # Job Hunt Pipeline
 
-Sistema automatizado de búsqueda de empleo: ingiere miles de ofertas de múltiples fuentes, las
-clasifica por **elegibilidad geográfica (por-anuncio)**, las rankea por **similitud semántica
-(embeddings)** contra un perfil, y puntúa las más prometedoras con un **LLM (Claude)** que emite un
-veredicto estructurado y aplica **"hard stops"** (geo, salario, requisitos imposibles). La salida
-alimenta un dashboard de revisión y un **refinador de CV multi-agente** (ATS + reclutador + reviser
-en bucle) que adapta el CV por oferta.
+Automated job search system: ingests thousands of postings from multiple sources, filters by
+**per-posting geographic eligibility**, ranks by **semantic similarity (embeddings)** against a
+candidate profile, and scores the top candidates with a **structured LLM analysis** that applies
+**hard stops** (geo, salary, impossible requirements). Output feeds a review dashboard and a
+**multi-agent CV refiner** (ATS screener + recruiter + reviser loop) that tailors the CV per posting.
 
-> **El problema que resuelve:** revisar miles de ofertas a mano es inviable. El pipeline reduce
-> ~10k ofertas a las pocas decenas que son *realmente* elegibles, deseables y alcanzables — y para
-> cada una adapta el CV. La filosofía es **KISS**: pocas etapas deterministas + una llamada LLM
-> donde el razonamiento importa.
+> **The problem it solves:** manually reviewing thousands of postings is not feasible. The pipeline
+> reduces ~10k postings to the few dozen that are *genuinely* eligible, desirable, and reachable —
+> and for each one it adapts the CV. The philosophy is **KISS**: a few deterministic stages + one LLM
+> call where reasoning actually matters.
 
 ---
 
-## Arquitectura
+## Architecture
 
 ```
-fuentes ──► store (Postgres+pgvector) ──► elegibilidad ──► embeddings ──► scoring LLM ──► dashboard ──► CV refine
-(11 APIs)    raw_text aislado            (geo por-anuncio)  (ranking)      (Claude, JSON)   (revisión)   (multi-agente)
-                                              │                                │
-                                              └────────── hard-stops ──────────┘
-                                          (geo + salario < piso → fuera del pool de análisis)
+sources ──► store (Postgres+pgvector) ──► eligibility ──► embeddings ──► LLM scoring ──► dashboard ──► CV refine
+(11 APIs)    raw_text isolated            (per-posting)    (ranking)     (Claude, JSON)   (review)     (multi-agent)
+                                               │                               │
+                                               └──────── hard-stops ───────────┘
+                                           (geo + salary < floor → out of analysis pool)
 ```
 
-| Etapa | Archivo | Qué hace |
-|-------|---------|----------|
-| **Fetch multifuente** | `sources/*.mjs` | LinkedIn (guest endpoints), ATS públicos (Greenhouse/Ashby/Lever), Torre, HN Who's Hiring, Get on Board, boards remote-first. Dedup por id + `company::title`. |
-| **Store** | `lib/store.mjs`, `db/schema.sql` | Postgres 16 + pgvector. El `raw_text` queda aislado por fila (no infla contextos). `getSelectable()` = pozo de análisis con hard-stops ya filtrados. |
-| **Elegibilidad** | `scoring/eligibility.mjs` | Clasificador geográfico **por-anuncio** y *source-aware*: LinkedIn y ATS de empresa son estrictos (la ubicación ata el anuncio); boards remote-first son laxos salvo restricción dura. Nunca bloquea una empresa entera. |
-| **Embeddings / ranking** | `scoring/embed.mjs` | OpenAI `text-embedding-3-small`; similitud coseno contra el perfil → `jobs.semantic`. Filtra barato el grueso antes de gastar en el LLM. |
-| **Análisis LLM** | `scoring/analyze-queue.mjs` | Claude analiza las mejores ofertas y devuelve JSON estricto: `want`/`qual`, mapa de `requirements` (req/nice, meets/stretch/gap/blocker), geo, comp, red flags. |
-| **Hard-stops** | `scoring/hardstops.mjs` | Persisten los descartes deterministas (geo no-elegible, salario < piso) para **no re-analizar** — igual que los IDs conocidos evitan re-ingestar. |
-| **Dashboard** | `review/server.mjs` + `review/public/` | HTTP local (`:5173`) para revisar, calificar y aprobar ofertas. |
-| **Refinador de CV** | `cv/refine.mjs` | Bucle **multi-agente**: un *ATS-screener* y un *reclutador* critican el CV vs la oferta; un *reviser* lo reescribe (solo con hechos de la KB) 2-3 vueltas hasta pasar umbral. Sin RAG a propósito. |
-| **Perfil** | `profile/*` | `target.json` (criterios), `digest.md` (perfil para el LLM), `enrich-spec.md` (spec de análisis), `learned.json` (preferencias aprendidas). |
+| Stage | File | What it does |
+|-------|------|--------------|
+| **Multi-source fetch** | `sources/*.mjs` | LinkedIn (guest endpoints), public ATS boards (Greenhouse/Ashby/Lever), Torre, HN Who's Hiring, Get on Board, remote-first boards. Dedup by id + `company::title`. |
+| **Store** | `lib/store.mjs`, `db/schema.sql` | Postgres 16 + pgvector. `raw_text` is isolated per row (never bloats model contexts). `getSelectable()` = analysis pool with hard-stops already filtered out. |
+| **Eligibility** | `scoring/eligibility.mjs` | **Per-posting**, source-aware geographic classifier: LinkedIn and company ATS are strict (the location binds the posting); remote-first boards are lenient unless there's a hard restriction. Never blocks an entire company. |
+| **Embeddings / ranking** | `scoring/embed.mjs` | OpenAI `text-embedding-3-small`; cosine similarity against the candidate profile → `jobs.semantic`. Cheap pre-filter before spending on the LLM. |
+| **LLM analysis** | `scoring/analyze-queue.mjs` | Claude analyzes the top postings and returns strict JSON: `want`/`qual`, `requirements` map (req/nice × meets/stretch/gap/blocker), geo, comp, red flags. |
+| **Hard-stops** | `scoring/hardstops.mjs` | Persists deterministic discards (ineligible geo, salary below floor) to **avoid re-analyzing** — same way known IDs avoid re-ingesting. |
+| **Dashboard** | `review/server.mjs` + `review/public/` | Local HTTP (`:5173`) to review, rate, and approve postings. |
+| **CV refiner** | `cv/refine.mjs` | **Multi-agent loop**: an *ATS-screener* and a *recruiter* critique the CV vs the job description; a *reviser* rewrites it (facts from KB only) 2–3 rounds until it passes the threshold. No RAG by design. |
+| **Profile** | `profile/*` | `target.json` (criteria), `digest.md` (profile for LLM), `enrich-spec.md` (analysis spec), `learned.json` (learned preferences). |
 
 ---
 
 ## Stack
 
-- **Node.js 20** (ESM, sin frameworks) — única dependencia runtime: `pg`.
+- **Node.js 20** (ESM, no frameworks) — single runtime dependency: `pg`.
 - **PostgreSQL 16 + pgvector** (Docker).
-- **OpenAI** embeddings (ranking semántico) · **Anthropic Claude** (análisis con razonamiento estricto).
+- **OpenAI** embeddings (semantic ranking) · **Anthropic Claude** (structured reasoning analysis).
 
 ---
 
 ## Setup
 
-Requisitos: Docker + Docker Compose, y Node 20 (si corres los scripts fuera de Docker).
+Requirements: Docker (for Postgres) + Node 20.
 
-```bash
-# 1) Config
-cp .env.example .env            # rellena ANTHROPIC_API_KEY y OPENAI_API_KEY
-
-# 2) Perfil (datos personales — NO se versionan; parten de plantillas)
-cp profile/target.example.json  profile/target.json
-cp profile/digest.example.md    profile/digest.md
-cp profile/learned.example.json profile/learned.json
-#   edita esos 3 con tus datos / criterios
-
-# 3) Base de datos
-docker compose up -d db         # Postgres+pgvector en localhost:5433
+**1. Keys** — copy `.env.example` → `.env` and fill in two keys:
+```
+ANTHROPIC_API_KEY=...
+OPENAI_API_KEY=...
 ```
 
-## Ejecución
-
-### Con Docker (pipeline + dashboard)
-
+**2. Profile** — copy the templates and edit with your criteria:
 ```bash
-docker compose up --build       # levanta db + app (dashboard en http://localhost:5173)
-# correr una etapa puntual dentro del contenedor:
-docker compose run --rm app node sources/fetch.mjs
+cp profile/target.example.json profile/target.json   # roles, salary floor, stack, keywords
+cp profile/digest.example.md   profile/digest.md     # LLM profile description
 ```
 
-### Local (Node directo)
-
+**3. Run**
 ```bash
+docker compose up -d db        # start Postgres+pgvector at localhost:5433
 npm install
-npm run fetch     # 1) ingiere ofertas de todas las fuentes
-npm run embed     # 2) embeddings + ranking semántico
-npm run score     # 3) elegibilidad + scoring heurístico
-node --env-file=.env scoring/analyze-queue.mjs   # 4) análisis LLM de las mejores
-node --env-file=.env scoring/hardstops.mjs       # 5) persiste hard-stops
-npm run dash      # 6) dashboard de revisión → http://localhost:5173
+npm run fetch                  # ingest from all sources
+npm run score                  # eligibility + scoring
+npm run dash                   # review dashboard → http://localhost:5173
 ```
 
 ---
 
-## Trade-offs técnicos
+## Design decisions
 
-**1) Claude Sonnet para el análisis, no un modelo más barato.**
-El análisis no es un resumen: aplica *hard stops* que exigen razonamiento estricto — elegibilidad
-geográfica por-anuncio, detección de requisitos imposibles (p.ej. "5 años" de una herramienta
-nacida hace uno), salario vs. piso, y distinguir **construir IA** de **usar IA**. Probado con un
-modelo barato (`gpt-4o-mini`), el análisis **inflaba**: marcaba gigs de "AI evaluator/data-labeling"
-como matches fuertes, se saltaba restricciones de geo y confundía "usar Copilot" con "construir
-agentes". Sonnet sostiene ese criterio y devuelve JSON estructurado confiable. El costo se controla
-en capas: los **embeddings (baratos)** rankean el grueso; el **LLM caro** solo toca la crema curada.
+**1) Claude Sonnet for analysis, not a cheaper model.**
+The analysis is not summarization: it applies *hard stops* that require strict reasoning —
+per-posting geographic eligibility, detection of impossible requirements (e.g. "5 years" of a tool
+that is one year old), salary vs. floor, and distinguishing **building AI** from **using AI**.
+When tested with a cheaper model (`gpt-4o-mini`), the analysis **inflated**: it marked "AI
+evaluator / data-labeling" gigs as strong matches, skipped geo restrictions, and confused "using
+Copilot" with "building agents". Sonnet holds that bar and returns reliable structured JSON. Cost is
+controlled in layers: **embeddings (cheap)** rank the bulk; the **expensive LLM** only touches the
+curated top slice.
 
-**2) Vanilla JS, no LangChain / LangGraph.**
-El pipeline son pocas etapas deterministas (fetch → clasificar → embeber → analizar → guardar). Un
-framework de orquestación agrega abstracción, peso de dependencias y latencia que este flujo no
-necesita. Llamadas `fetch` directas a las APIs REST de OpenAI/Anthropic + workers async simples lo
-mantienen **rápido, depurable y con una sola dependencia** (`pg`). Si la orquestación creciera
-(ramas condicionales, reintentos con estado, herramientas encadenadas), LangGraph valdría la pena —
-hoy sería sobre-ingeniería.
+**2) Vanilla JS, not LangChain / LangGraph.**
+The pipeline is a few deterministic stages (fetch → classify → embed → analyze → store). An
+orchestration framework adds abstraction, dependency weight, and latency this flow does not need.
+Direct `fetch` calls to OpenAI/Anthropic REST APIs + simple async workers keep it **fast, debuggable,
+and with a single dependency** (`pg`). If orchestration grew (conditional branches, stateful retries,
+chained tools), LangGraph would be worth it — today it would be over-engineering.
 
-**3) Dónde está (y dónde NO está) el "multi-agente", y por qué sin RAG.**
-El *análisis* de ofertas no es multi-agente: es **inferencia en paralelo** (un pool de workers que
-hacen la misma llamada al LLM) — llamarlo multi-agente sería inflarlo. El multi-agente real vive en
-`cv/refine.mjs`: roles **distintos** (ATS, reclutador, reviser) que **coordinan e iteran con
-feedback**. Y deliberadamente **no usa RAG**: el contexto es 1 CV + 1 oferta + 1 knowledge base —
-cabe entero en el prompt. Un vector store ahí sería decoración, no ingeniería.
+**3) Where the "multi-agent" actually is — and why no RAG.**
+The *posting analysis* is not multi-agent: it is **parallel inference** (a worker pool making the
+same LLM call) — calling it multi-agent would be inflating the claim. The real multi-agent lives in
+`cv/refine.mjs`: **distinct roles** (ATS screener, recruiter, reviser) that **coordinate and iterate
+with feedback**. And deliberately **no RAG**: the context is 1 CV + 1 job description + 1 knowledge
+base — it fits entirely in the prompt. A vector store there would be decoration, not engineering.
 
 ---
 
-## Estructura
+## Structure
 
 ```
-sources/    fetch multifuente
+sources/    multi-source fetch
 scoring/    eligibility · embed · analyze-queue · hardstops · score · normalize-salary
 lib/        store (Postgres+pgvector)
-review/     dashboard HTTP de revisión
-profile/    criterios + perfil + spec de análisis (datos reales gitignored)
+review/     HTTP review dashboard
+profile/    criteria + profile + analysis spec (real data gitignored)
 db/         schema.sql
 ```
 
-> Proyecto personal de automatización. Sistema deliberadamente simple: optimizado para entender,
-> depurar y extender, no para impresionar con capas.
+> Personal automation project. Deliberately simple system: optimized to be understood, debugged, and
+> extended — not to impress with layers.

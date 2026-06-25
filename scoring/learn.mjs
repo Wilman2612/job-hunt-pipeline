@@ -1,9 +1,9 @@
-// Destila decisions.jsonl en profile/learned.json:
-//   - keywords sobre-representadas en APROBADAS  -> boost_keywords
-//   - keywords sobre-representadas en DESCARTADAS -> penalize_keywords
-//   - empresas descartadas (repetidas)            -> rejected_companies
-// Compara frecuencias (apruebo vs descarto) sobre título + raw_text de cada oferta.
-// Uso: node scoring/learn.mjs
+// Distills decisions.jsonl into profile/learned.json:
+//   - keywords over-represented in APPROVED  -> boost_keywords
+//   - keywords over-represented in REJECTED  -> penalize_keywords
+//   - rejected companies (repeated)          -> rejected_companies
+// Compares frequencies (approve vs reject) over title + raw_text of each posting.
+// Usage: node scoring/learn.mjs
 import { readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { ROOT, loadScored, loadDecisions, readJob, closePool } from "../lib/store.mjs";
@@ -52,7 +52,7 @@ learned.rejected_companies = merge(learned.rejected_companies, [...rejectedCos].
 learned.decisions_log = [{ ts: new Date().toISOString(), approved: approvedDocs.length, rejected: rejectedDocs.length }, ...(learned.decisions_log || [])].slice(0, 20);
 
 await writeFile(LEARNED, JSON.stringify(learned, null, 2));
-console.error(`Aprendido de ${approvedDocs.length} aprobadas / ${rejectedDocs.length} descartadas.`);
+console.error(`Learned from ${approvedDocs.length} approved / ${rejectedDocs.length} rejected.`);
 console.error(`boost: [${learned.boost_keywords.slice(0, 12).join(", ")}]`);
 console.error(`penalize: [${learned.penalize_keywords.slice(0, 12).join(", ")}]`);
 console.error(`rejected_companies: [${learned.rejected_companies.join(", ")}]`);

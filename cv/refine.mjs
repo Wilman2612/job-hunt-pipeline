@@ -1,22 +1,22 @@
-// Refinamiento de CV MULTI-AGENTE: tres roles con objetivos distintos que iteran con feedback.
-//   1) ATS screener  → puntúa parseo + cobertura de keywords vs la job description.
-//   2) Reclutador     → scan de 6s: fit, impacto, credibilidad, red flags.
-//   3) Reviser        → reescribe atendiendo ambas críticas. GUARDRAIL: solo usa hechos del
-//                       knowledge base; reencuadra/enfatiza, NUNCA fabrica.
-// Bucle hasta que ATS y reclutador pasen el umbral o se agoten las rondas.
+// MULTI-AGENT CV refinement: three roles with distinct objectives that iterate with feedback.
+//   1) ATS screener  → scores parsing + keyword coverage vs the job description.
+//   2) Recruiter      → 6-second scan: fit, impact, credibility, red flags.
+//   3) Reviser        → rewrites addressing both critiques. GUARDRAIL: only uses facts from the
+//                       knowledge base; reframes/emphasizes, NEVER fabricates.
+// Loop until ATS and recruiter both pass the threshold or rounds are exhausted.
 //
-// SIN RAG a propósito: la data (1 CV + 1 JD + 1 KB) entra en contexto; un vector store sería
-// over-engineering para este volumen. Llamadas directas a la API de Claude → cero deps.
-// (Standalone, pero también se puede orquestar con Claude Code.)
+// NO RAG by design: the data (1 CV + 1 JD + 1 KB) fits in context; a vector store would be
+// over-engineering for this volume. Direct calls to the Claude API → zero deps.
+// (Standalone, but can also be orchestrated with Claude Code.)
 //
-// Uso:
+// Usage:
 //   node --env-file=.env cv/refine.mjs --jd=job.txt --kb=cv_base.md [--cv=draft.md] \
 //        [--out=cv.final.md] [--rounds=3] [--threshold=80]
 import { readFile, writeFile } from "node:fs/promises";
 
 const KEY = process.env.ANTHROPIC_API_KEY;
 const MODEL = process.env.CV_MODEL || "claude-3-5-sonnet-latest";
-if (!KEY) { console.error("Falta ANTHROPIC_API_KEY en .env"); process.exit(1); }
+if (!KEY) { console.error("Missing ANTHROPIC_API_KEY in .env"); process.exit(1); }
 
 const arg = (n, d) => { const a = process.argv.find((x) => x.startsWith(`--${n}=`)); return a ? a.split("=").slice(1).join("=") : d; };
 const ROUNDS = Number(arg("rounds", 3));
@@ -35,45 +35,45 @@ async function claude(system, user, maxTokens) {
 const parseJson = (t) => { const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); return JSON.parse(f ? f[1] : t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)); };
 const stripFences = (t) => { const f = t.match(/```(?:markdown|md)?\s*([\s\S]*?)```/); return (f ? f[1] : t).trim(); };
 
-// --- Roles (cada uno es un agente con su propio system prompt y objetivo) ---
-const ATS_SYS = `Eres un Applicant Tracking System (ATS) + primer filtro técnico. Evalúas un CV contra una job description como lo haría un parser ATS y un screener. Devuelve SOLO JSON:
-{"score":0-100,"missing_keywords":[...],"format_risks":[...],"notes":"1-2 frases"}
-Penaliza: keywords clave de la JD ausentes en el CV; secciones no estándar; tablas/columnas que rompen el parseo; acrónimos sin expandir al menos una vez.`;
+// --- Roles (each is an agent with its own system prompt and objective) ---
+const ATS_SYS = `You are an Applicant Tracking System (ATS) + first technical filter. You evaluate a CV against a job description the way an ATS parser and screener would. Return ONLY JSON:
+{"score":0-100,"missing_keywords":[...],"format_risks":[...],"notes":"1-2 sentences"}
+Penalize: key JD keywords missing from the CV; non-standard sections; tables/columns that break parsing; acronyms not expanded at least once.`;
 
-const RECRUITER_SYS = `Eres un reclutador técnico senior en el scan de 6 segundos. Evalúas si el CV VENDE al candidato para ESTA oferta. Devuelve SOLO JSON:
-{"score":0-100,"strengths":[...],"weaknesses":[...],"red_flags":[...],"verdict":"1 frase"}
-Mira: ¿el tercio superior comunica el fit?; ¿hay impacto medible?; ¿es creíble o suena a humo?; ¿algún claim inflado o inconsistente?`;
+const RECRUITER_SYS = `You are a senior technical recruiter doing the 6-second scan. You evaluate whether the CV SELLS the candidate for THIS role. Return ONLY JSON:
+{"score":0-100,"strengths":[...],"weaknesses":[...],"red_flags":[...],"verdict":"1 sentence"}
+Look at: does the top third communicate fit?; is there measurable impact?; is it credible or does it sound like hype?; any inflated or inconsistent claims?`;
 
-const REVISER_SYS = `Eres un escritor de CVs técnicos. Reescribes el CV para subir su puntaje ante el ATS y el reclutador, atendiendo sus críticas.
-REGLA INVIOLABLE: solo puedes usar hechos presentes en el KNOWLEDGE BASE. NO inventes empleos, métricas, años ni tecnologías. Puedes reordenar, reencuadrar, enfatizar y alinear keywords con la JD — nunca fabricar.
-Formato: markdown limpio, 1-2 páginas, secciones estándar. Devuelve SOLO el CV en markdown, sin comentarios.`;
+const REVISER_SYS = `You are a technical CV writer. You rewrite the CV to raise its score with the ATS and the recruiter, addressing their critiques.
+INVIOLABLE RULE: you can only use facts present in the KNOWLEDGE BASE. Do NOT invent jobs, metrics, years, or technologies. You may reorder, reframe, emphasize, and align keywords with the JD — never fabricate.
+Format: clean markdown, 1-2 pages, standard sections. Return ONLY the CV in markdown, no commentary.`;
 
 const atsReview = (cv, jd) => claude(ATS_SYS, `JOB DESCRIPTION:\n${jd}\n\nCV:\n${cv}`, 700).then(parseJson);
 const recruiterReview = (cv, jd) => claude(RECRUITER_SYS, `JOB DESCRIPTION:\n${jd}\n\nCV:\n${cv}`, 700).then(parseJson);
 
 function revise(cv, jd, kb, ats, rec) {
-  const crit = `CRÍTICA ATS (score ${ats.score}): faltan keywords ${JSON.stringify(ats.missing_keywords)}; riesgos de formato ${JSON.stringify(ats.format_risks)}. ${ats.notes}
-CRÍTICA RECLUTADOR (score ${rec.score}): debilidades ${JSON.stringify(rec.weaknesses)}; red flags ${JSON.stringify(rec.red_flags)}. ${rec.verdict}`;
-  return claude(REVISER_SYS, `KNOWLEDGE BASE (única fuente de hechos permitida):\n${kb}\n\nJOB DESCRIPTION:\n${jd}\n\nCV ACTUAL:\n${cv}\n\nCRÍTICAS A ATENDER:\n${crit}`, 2500).then(stripFences);
+  const crit = `ATS CRITIQUE (score ${ats.score}): missing keywords ${JSON.stringify(ats.missing_keywords)}; format risks ${JSON.stringify(ats.format_risks)}. ${ats.notes}
+RECRUITER CRITIQUE (score ${rec.score}): weaknesses ${JSON.stringify(rec.weaknesses)}; red flags ${JSON.stringify(rec.red_flags)}. ${rec.verdict}`;
+  return claude(REVISER_SYS, `KNOWLEDGE BASE (only permitted source of facts):\n${kb}\n\nJOB DESCRIPTION:\n${jd}\n\nCURRENT CV:\n${cv}\n\nCRITIQUES TO ADDRESS:\n${crit}`, 2500).then(stripFences);
 }
 const writeDraft = (jd, kb) =>
-  claude(REVISER_SYS, `KNOWLEDGE BASE (única fuente de hechos permitida):\n${kb}\n\nJOB DESCRIPTION:\n${jd}\n\nEscribe un primer CV de 1-2 páginas tuneado a esta oferta, usando SOLO hechos del knowledge base.`, 2500).then(stripFences);
+  claude(REVISER_SYS, `KNOWLEDGE BASE (only permitted source of facts):\n${kb}\n\nJOB DESCRIPTION:\n${jd}\n\nWrite an initial 1-2 page CV tailored to this role, using ONLY facts from the knowledge base.`, 2500).then(stripFences);
 
-// --- Orquestación del bucle ---
+// --- Loop orchestration ---
 const jdPath = arg("jd"), kbPath = arg("kb");
-if (!jdPath || !kbPath) { console.error("Faltan --jd=<job.txt> y --kb=<cv_base.md>"); process.exit(1); }
+if (!jdPath || !kbPath) { console.error("Missing --jd=<job.txt> and --kb=<cv_base.md>"); process.exit(1); }
 const jd = await readFile(jdPath, "utf8");
 const kb = await readFile(kbPath, "utf8");
-let cv = arg("cv") ? await readFile(arg("cv"), "utf8") : (console.error("Sin draft → generando CV inicial…"), await writeDraft(jd, kb));
+let cv = arg("cv") ? await readFile(arg("cv"), "utf8") : (console.error("No draft provided → generating initial CV…"), await writeDraft(jd, kb));
 
 const trace = [];
 for (let i = 1; i <= ROUNDS; i++) {
   const [ats, rec] = await Promise.all([atsReview(cv, jd), recruiterReview(cv, jd)]);
   trace.push({ round: i, ats: ats.score, recruiter: rec.score });
-  console.error(`Ronda ${i}:  ATS ${ats.score}  |  Reclutador ${rec.score}`);
-  if (ats.score >= THRESHOLD && rec.score >= THRESHOLD) { console.error("✓ Ambos pasan el umbral — listo."); break; }
+  console.error(`Round ${i}:  ATS ${ats.score}  |  Recruiter ${rec.score}`);
+  if (ats.score >= THRESHOLD && rec.score >= THRESHOLD) { console.error("✓ Both pass the threshold — done."); break; }
   if (i < ROUNDS) cv = await revise(cv, jd, kb, ats, rec);
 }
 await writeFile(OUT, cv, "utf8");
-console.error(`\nCV final → ${OUT}`);
+console.error(`\nFinal CV → ${OUT}`);
 console.error("Trace:", JSON.stringify(trace));

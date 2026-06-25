@@ -1,13 +1,13 @@
-// Re-aplica la elegibilidad ESTRICTA (eligibility.mjs) a todas las ofertas usando su
-// location + raw_text, y actualiza la columna `eligibility` y `enrich.geo`. Determinista,
-// sin subagentes. Corregir el deck tras el feedback de the candidate (remoto ≠ tu región).
-// Uso: node --env-file=.env scoring/recheck-geo.mjs
+// Re-applies STRICT eligibility (eligibility.mjs) to all postings using their
+// location + raw_text, and updates the `eligibility` and `enrich.geo` columns. Deterministic,
+// no subagents. Corrects the deck after candidate feedback (remote ≠ your region).
+// Usage: node --env-file=.env scoring/recheck-geo.mjs
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { q, closePool, ROOT } from "../lib/store.mjs";
 import { classify } from "./eligibility.mjs";
 
-// Empresas donde the candidate NO puede/quiere postular: en pausa (Lemon) o PERUANAS (evita locales).
+// Companies the candidate CANNOT/does not want to apply to: paused or LOCAL (avoids local companies).
 let blocked = new Set(), peruvian = new Set();
 try {
   const L = JSON.parse(await readFile(path.join(ROOT, "profile/learned.json"), "utf8"));
@@ -20,13 +20,13 @@ const { rows } = await q("SELECT source, ext_id, company, location, raw_text, en
 let ineligible = 0;
 for (const r of rows) {
   let e = classify(r.location, r.raw_text || "", r.source);
-  if (r.company && blocked.has(r.company.toLowerCase())) e = { region: "no-aplica", eligibleForPeru: false, evidence: "empresa en pausa / no se puede postular" };
-  else if (isPeruvian(r.company)) e = { region: "empresa-peruana", eligibleForPeru: false, evidence: "empresa peruana (the candidate evita locales)" };
-  // Conservador: si el subagente YA marcó no-elegible, no lo perdemos.
+  if (r.company && blocked.has(r.company.toLowerCase())) e = { region: "no-aplica", eligibleForPeru: false, evidence: "company paused / cannot apply" };
+  else if (isPeruvian(r.company)) e = { region: "empresa-peruana", eligibleForPeru: false, evidence: "local company (candidate avoids locals)" };
+  // Conservative: if the subagent ALREADY marked ineligible, we keep that.
   const prev = r.enrich?.geo;
   let region = e.region, elig = e.eligibleForPeru, note = e.evidence;
   if (prev && prev.eligible_peru === false && e.eligibleForPeru) {
-    region = prev.region; elig = false; note = prev.note || e.evidence; // gana lo más restrictivo
+    region = prev.region; elig = false; note = prev.note || e.evidence; // most restrictive wins
   }
   const eligJson = JSON.stringify({ region, eligibleForPeru: elig, evidence: note });
   if (r.enrich) {
@@ -38,8 +38,8 @@ for (const r of rows) {
   }
   if (!elig) ineligible++;
 }
-console.error(`Reclasificadas ${rows.length} | no-elegibles: ${ineligible} | elegibles: ${rows.length - ineligible}`);
+console.error(`Reclassified ${rows.length} | ineligible: ${ineligible} | eligible: ${rows.length - ineligible}`);
 const { rows: bd } = await q("SELECT eligibility->>'region' AS region, count(*) c FROM jobs GROUP BY 1 ORDER BY 2 DESC");
-console.error("Por región:");
+console.error("By region:");
 for (const x of bd) console.error(`  ${x.region}: ${x.c}`);
 await closePool();

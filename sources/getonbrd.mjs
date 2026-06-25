@@ -1,5 +1,5 @@
-// Get on Board (getonbrd.com) — bolsa LATAM, API pública. Board remote-first (elegibilidad laxa).
-// Uso: node --env-file=.env sources/getonbrd.mjs
+// Get on Board (getonbrd.com) — LATAM job board, public API. Remote-first board (lax eligibility).
+// Usage: node --env-file=.env sources/getonbrd.mjs
 import { ensureDirs, loadKnown, isKnown, writeJob, closePool } from "../lib/store.mjs";
 const UA = "Mozilla/5.0 (job-hunt-bot; you@example.com)";
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -34,7 +34,7 @@ const main = async () => {
       await sleep(700);
     }
   }
-  console.error(`Get on Board: +${added} nuevas → Postgres`);
+  console.error(`Get on Board: +${added} new → Postgres`);
   await closePool();
 };
 main();

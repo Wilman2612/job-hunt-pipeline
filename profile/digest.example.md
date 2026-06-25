@@ -1,35 +1,35 @@
-# [YOUR NAME] — digest para análisis de ofertas
+# [YOUR NAME] — digest for job posting analysis
 
-Based in [CITY, COUNTRY] (UTC[±N]). [Languages]. Busca **remoto extranjero**.
+Based in [CITY, COUNTRY] (UTC[±N]). [Languages]. Looking for **remote foreign employer**.
 
-## Rol objetivo (lo que QUIERE)
-[Target roles, p.ej. Generative AI Engineer · AI Agent Engineer · Senior AI Engineer · Applied AI · LLM Engineer].
-Núcleo: [sistemas agénticos (RAG, multi-agente, MCP), integración de LLMs, productización de AI], con backend sólido como fundamento.
+## Target role (what they WANT)
+[Target roles, e.g. Generative AI Engineer · AI Agent Engineer · Senior AI Engineer · Applied AI · LLM Engineer].
+Core: [agentic systems (RAG, multi-agent, MCP), LLM integration, AI productization], with a solid backend foundation.
 
-## Lo que EVITA (baja el WANT)
-[ML research puro, data analyst, frontend puro, QA, roles sin hands-on, gigs de "AI evaluator"/data-labeling].
-**CRÍTICO — distinguir CONSTRUIR IA vs USAR IA:**
-- **WANT ALTO:** roles que CONSTRUYEN sistemas de IA como producto — agentes, RAG, multi-agente, LLM pipelines, MCP. La IA ES el producto.
-- **WANT BAJO:** "programar CON IA" / "AI-augmented engineering" / "vibe-coding" / dev normal que solo usa herramientas AI. Eso ya lo hace; no es lo que busca.
+## What they AVOID (lowers WANT)
+[Pure ML research, data analyst, pure frontend, QA, non-hands-on roles, "AI evaluator"/data-labeling gigs].
+**CRITICAL — distinguish BUILDING AI vs USING AI:**
+- **HIGH WANT:** roles that BUILD AI systems as a product — agents, RAG, multi-agent, LLM pipelines, MCP. AI IS the product.
+- **LOW WANT:** "coding WITH AI" / "AI-augmented engineering" / "vibe-coding" / regular dev who just uses AI tools. They already do that; it's not what they're after.
 
-## TIMELINE DE EXPERIENCIA (crítico para QUAL — NO inflar)
-- **[Backend/área fuerte]: [N]+ años** (senior).
-- **AI / GenAI / agentes / LLMs: RECIENTE, ~[N] año(s).** NO años. Pedir "3-5+ años" de herramientas nacidas en 2024 es imposible.
-- **[Lenguaje secundario]: intermedio.**
-⇒ NO califica para roles que exijan 3+ años de AI/agentic; SÍ encaja en roles AI que valoren backend fuerte + GenAI reciente en producción.
+## EXPERIENCE TIMELINE (critical for QUAL — do NOT inflate)
+- **[Backend/core area]: [N]+ years** (senior).
+- **AI / GenAI / agents / LLMs: RECENT, ~[N] year(s).** NOT years. Asking for "3-5+ years" of tools born in 2024 is impossible.
+- **[Secondary language]: intermediate.**
+⇒ Does NOT qualify for roles requiring 3+ years of AI/agentic; DOES fit AI roles that value strong backend + recent GenAI in production.
 
-## Experiencia real (para QUAL)
-- **[N]+ años backend**: [stack].
-- **[Proyectos GenAI a producción]**: [RAG con embeddings + vector DB, pipelines multi-agente, etc.].
+## Real experience (for QUAL)
+- **[N]+ years backend**: [stack].
+- **[GenAI projects in production]**: [RAG with embeddings + vector DB, multi-agent pipelines, etc.].
 - **Cloud/DevOps**: [AWS, Docker, Kubernetes, Terraform, ...].
 - **Data**: [PostgreSQL + pgvector, ...].
 - **AI stack**: [OpenAI, Anthropic, LangChain/LangGraph, MCP, embeddings, vector DBs].
 
-## Datos extra
-- [Dominios / detalles que cambian cómo se leen ciertos requisitos.]
+## Additional context
+- [Domains / details that change how certain requirements should be read.]
 
-## Gaps conocidos (para QUAL honesto)
-- [p.ej. GCP/Vertex AI — mencionar como próxima área.]
+## Known gaps (for honest QUAL)
+- [e.g. GCP/Vertex AI — flag as next area.]
 
-## Compensación (contexto del WANT)
-Piso aceptable ~$45k USD/año, objetivo $65k+. Remoto extranjero debe pagar claramente más.
+## Compensation (WANT context)
+Acceptable floor ~$45k USD/year, target $65k+. Foreign remote roles must clearly pay more.

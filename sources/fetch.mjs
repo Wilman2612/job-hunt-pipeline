@@ -1,7 +1,7 @@
-// Fetcher paralelo MULTIFUENTE de ofertas remotas (APIs públicas + buffer del navegador).
-// Normaliza a un esquema común, deduplica contra el store, filtra por señales de AI,
-// y persiste a index.jsonl + un archivo por oferta (con raw_text). No re-procesa lo conocido.
-// Uso: node sources/fetch.mjs
+// Parallel MULTI-SOURCE fetcher for remote postings (public APIs + browser buffer).
+// Normalizes to a common schema, deduplicates against the store, filters by AI signals,
+// and persists to index.jsonl + one file per posting (with raw_text). Does not reprocess known ones.
+// Usage: node sources/fetch.mjs
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { ensureDirs, loadKnown, isKnown, upsertIndex, writeJob, closePool, INCOMING } from "../lib/store.mjs";
@@ -56,7 +56,7 @@ function norm({ source, id, title, company, location, url, description, salary, 
   };
 }
 
-// --- Fuentes ---
+// --- Sources ---
 
 async function remotive() {
   const out = [];
@@ -101,7 +101,7 @@ async function arbeitnow() {
 }
 
 async function wwr() {
-  // RSS de WeWorkRemotely (programming)
+  // WeWorkRemotely RSS (programming)
   try {
     const xml = await get("https://weworkremotely.com/categories/remote-programming-jobs.rss", "text");
     const items = xml.split("<item>").slice(1);
@@ -166,7 +166,7 @@ async function jobicy() {
 }
 
 async function torre() {
-  // Torre.ai — LATAM-friendly, API pública (POST), trae salario real y skills.
+  // Torre.ai — LATAM-friendly, public API (POST), returns real salary and skills.
   const out = [];
   for (const q of ["AI engineer", "machine learning engineer", "LLM engineer", "generative AI"]) {
     try {
@@ -185,7 +185,7 @@ async function torre() {
         const skills = (o.skills || []).map((s) => s.name || s).filter(Boolean);
         out.push(norm({
           source: "torre", id: o.id, title: o.objective,
-          company: o.organizations?.[0]?.name || "(confidencial)",
+          company: o.organizations?.[0]?.name || "(confidential)",
           location: (o.locations || []).join(", ") || (o.remote ? "Remote" : ""),
           url: `https://torre.ai/post/${o.id}`,
           description: `${o.tagline || ""}. Skills: ${skills.join(", ")}`,
@@ -203,11 +203,11 @@ function isAI(j) {
 }
 
 const main = async () => {
-  console.error("Fetching en paralelo...");
+  console.error("Fetching in parallel...");
   const results = await Promise.allSettled([remotive(), remoteok(), arbeitnow(), wwr(), himalayas(), workingnomads(), jobicy(), torre()]);
   let all = results.flatMap((r) => (r.status === "fulfilled" ? r.value : []));
 
-  // Buffer del navegador (skill linkedin-jobs u otras fuentes cabecera-detalle).
+  // Browser buffer (linkedin-jobs skill or other header-detail sources).
   const buf = path.join(INCOMING, "linkedin.json");
   if (existsSync(buf)) {
     try {
@@ -219,20 +219,20 @@ const main = async () => {
           description: c.raw_text || c.description || "", tags: [],
         }));
       }
-      console.error(`Buffer navegador: +${cards.length} (${buf})`);
+      console.error(`Browser buffer: +${cards.length} (${buf})`);
     } catch (e) { console.error(`[buffer] ${e.message}`); }
   }
-  console.error(`Total bruto: ${all.length}`);
+  console.error(`Total raw: ${all.length}`);
 
-  // dedupe por url dentro de la corrida
+  // dedupe by url within this run
   const seenUrl = new Set();
   all = all.filter((j) => j.url && !seenUrl.has(j.url) && seenUrl.add(j.url));
 
-  // Solo AI (las de navegador ya vienen pre-filtradas por la búsqueda → conservar siempre).
-  const preFiltered = new Set(["linkedin", "torre"]); // ya buscadas por rol AI en la fuente
+  // AI only (browser ones are already pre-filtered by the search → always keep).
+  const preFiltered = new Set(["linkedin", "torre"]); // already searched by AI role at the source
   const ai = all.filter((j) => preFiltered.has(j.source) || isAI(j));
 
-  // Dedup contra lo ya conocido (index + excluidas) → no re-gastar recursos.
+  // Dedup against already known (index + excluded) → don't re-spend resources.
   await ensureDirs();
   const known = await loadKnown();
   let added = 0, skipped = 0;
@@ -242,14 +242,14 @@ const main = async () => {
     known.ids.add(String(j.id));
     const job = { ...j, raw_text: j.description || "", fetched_at: new Date().toISOString() };
     delete job.description;
-    await upsertIndex(job);            // liviano (sin raw_text)
-    if (job.raw_text) await writeJob(job); // completo (con raw_text) si hay descripción
+    await upsertIndex(job);            // lightweight (no raw_text)
+    if (job.raw_text) await writeJob(job); // full (with raw_text) if description is available
     bySource[j.source] = (bySource[j.source] || 0) + 1;
     added++;
   }
-  console.error(`Añadidas: ${added} | ya conocidas (saltadas): ${skipped}`);
+  console.error(`Added: ${added} | already known (skipped): ${skipped}`);
   console.error("Por fuente:", JSON.stringify(bySource));
-  console.error("-> Postgres (tabla jobs)");
+  console.error("-> Postgres (jobs table)");
   await closePool();
 };
 

@@ -1,6 +1,6 @@
-// ATS directos (Greenhouse / Ashby / Lever) — APIs JSON públicas sin auth, descripción completa.
-// Lista curada de empresas AI / remote-first. Cada board es otra fuente → paralelizable, sin muro.
-// Uso: node --env-file=.env sources/ats.mjs
+// Direct ATS (Greenhouse / Ashby / Lever) — public JSON APIs with no auth, full description.
+// Curated list of AI / remote-first companies. Each board is another source → parallelizable, no wall.
+// Usage: node --env-file=.env sources/ats.mjs
 import { ensureDirs, loadKnown, isKnown, writeJob, closePool } from "../lib/store.mjs";
 
 const UA = "Mozilla/5.0 (job-hunt-bot; you@example.com)";
@@ -12,7 +12,7 @@ const AI = ["ai", "ml", "machine learning", "llm", "genai", "generative", "agent
   "deep learning", "applied scientist", "research engineer", "data", "backend", "full stack", "software engineer", "infrastructure", "mlops"];
 const isRelevant = (t, d) => { const h = (t + " " + d).toLowerCase(); return AI.some((k) => h.includes(k)); };
 
-// Empresas AI / remote-first conocidas por plataforma (las que no existan dan 404 → se saltan).
+// Known AI / remote-first companies by platform (non-existent ones return 404 → skipped).
 const GREENHOUSE = ["databricks", "anthropic", "scaleai", "cohere", "huggingface", "runwayml", "wandb",
   "character", "glean", "adept", "togethercomputer", "modal", "harvey", "sierra", "abridge", "hippocraticai",
   "tome", "imbue", "contextual", "writer", "assemblyai", "deepgram", "weaviate", "pinecone", "neo4j",
@@ -21,16 +21,42 @@ const GREENHOUSE = ["databricks", "anthropic", "scaleai", "cohere", "huggingface
   "gusto", "samsara", "affirm", "chime", "faire", "unity", "twitch", "gretel", "arize", "verkada",
   "rippling", "airtable", "notion", "grammarly", "openstore", "ironclad", "vannaai", "tecton", "labelbox",
   "snorkelai", "primer", "moveworks", "cresta", "observe", "temporal", "render", "fivetran", "dbtlabs",
-  "montecarlo", "hex", "census", "amplitude", "mixpanel", "webflow", "loom", "miro", "calendly", "deel"];
+  "montecarlo", "hex", "census", "amplitude", "mixpanel", "webflow", "loom", "miro", "calendly", "deel",
+  // nuevas empresas AI 2025-2026
+  "mistralai", "xai", "inflectionai", "01ai", "zhipuai", "moonshot", "stepfun",
+  "stability", "midjourney", "ideogram", "blackforestlabs", "hedra", "lumalabs",
+  "nvidia", "amd", "intel", "qualcomm", "arm",
+  "palantir", "c3ai", "datarobot", "domino", "h2oai", "altair",
+  "huggingface", "replicate", "banana", "coreweave", "hyperstack", "fluidstack",
+  "turing", "toptal", "andela", "crossover",
+  "twilio", "sendgrid", "segment", "klaviyo", "iterable", "braze",
+  "figma", "canva", "framer", "relume",
+  "linear", "height", "shortcut", "plane",
+  "neon", "planetscale", "turso", "xata",
+  "resend", "loops", "customerio"];
 const ASHBY = ["openai", "perplexityai", "ramp", "linear", "mistral", "elevenlabs", "anysphere", "notion",
   "vercel", "supabase", "replit", "langchain", "writer", "crusoeenergy", "baseten", "fal", "lovable",
   "browserbase", "mintlify", "hex", "decagon", "sierra", "gamma", "raycast", "clay", "dust", "mercor",
   "cognition", "suno", "pika", "runwayml", "together", "modal", "weights", "scale", "harvey", "glean",
   "abridge", "openpipe", "exa", "tavily", "llamaindex", "crewai", "humanloop", "langfuse", "helicone",
   "vapi", "retellai", "sieve", "outset", "patronus", "freed", "tennr", "11x", "cursor", "windsurf",
-  "magic", "poolside", "sierraai", "hebbia", "rogo", "definite", "hyperbound", "fireworks", "lambdalabs"];
+  "magic", "poolside", "sierraai", "hebbia", "rogo", "definite", "hyperbound", "fireworks", "lambdalabs",
+  // nuevas 2025-2026
+  "groq", "together", "deepinfra", "novita", "lepton", "infermatic",
+  "comet", "braintrust", "arize", "traceloop", "honeyhive", "promptlayer",
+  "fixie", "letta", "e2b", "daytona", "devzero",
+  "reducto", "unstructured", "chunkr", "ragie",
+  "mem0", "zep", "cognee", "graphlit",
+  "liveblocks", "partykit", "convex", "jazz",
+  "trigger", "inngest", "temporal", "windmill",
+  "apify", "brightdata", "oxylabs", "scrapingbee",
+  "prompt", "credal", "glean", "guru", "notion"];
 const LEVER = ["voiceflow", "cresta", "you", "deepl", "huggingface", "anrok", "metabase", "instabase",
-  "verbit", "kaeya", "writer", "moveworks", "twelvelabs", "hippocratic", "perceptyx", "shieldai"];
+  "verbit", "kaeya", "writer", "moveworks", "twelvelabs", "hippocratic", "perceptyx", "shieldai",
+  // nuevas
+  "cohere", "ai21", "alephalpha", "nomic", "voyage", "jina",
+  "haystack", "weaviate", "qdrant", "milvus", "vespa",
+  "clarifai", "roboflow", "landing", "scale", "appen", "defined"];
 
 async function get(url, json = true) {
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 20000);
@@ -85,14 +111,14 @@ const main = async () => {
         known.ids.add(String(j.id));
         await writeJob(j); added++; n++;
       }
-      if (jobs.length) process.stderr.write(`  [${label}/${s}] ${jobs.length} jobs, +${n} AI nuevas\n`);
+      if (jobs.length) process.stderr.write(`  [${label}/${s}] ${jobs.length} jobs, +${n} new AI\n`);
       await sleep(300);
     }
   };
   await run(greenhouse, GREENHOUSE, "GH");
   await run(ashby, ASHBY, "ashby");
   await run(lever, LEVER, "lever");
-  console.error(`ATS: ${boards} boards activos, +${added} ofertas AI nuevas → Postgres`);
+  console.error(`ATS: ${boards} active boards, +${added} new AI postings → Postgres`);
   await closePool();
 };
 main();

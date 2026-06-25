@@ -1,19 +1,19 @@
-// LinkedIn vía endpoints GUEST (sin login, sin navegador, sin CSP).
-// Bypass conocido (lo usan JobSpy y otros): seeMoreJobPostings/search devuelve tarjetas,
-// jobPosting/<id> devuelve la descripción completa. Todo HTTP → entra al pipeline normal.
-// Va LENTO a propósito (pausas aleatorias) para no gatillar rate-limit/ban.
-// Uso: node --env-file=.env sources/linkedin.mjs
+// LinkedIn via GUEST endpoints (no login, no browser, no CSP).
+// Known bypass (used by JobSpy and others): seeMoreJobPostings/search returns cards,
+// jobPosting/<id> returns the full description. All HTTP → enters the normal pipeline.
+// Intentionally SLOW (random pauses) to avoid triggering rate-limit/ban.
+// Usage: node --env-file=.env sources/linkedin.mjs
 import { ensureDirs, loadKnown, isKnown, writeJob, closePool } from "../lib/store.mjs";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const jitter = (a, b) => a + Math.random() * (b - a);
 
-// Búsquedas objetivo de the candidate (remoto). f_WT=2 = remoto. Escala: ubicación Perú/Lima (empresas
-// contratando aquí) + LATAM + US/Worldwide (la regla estricta filtra los que no aceptan LATAM/Perú).
+// Target searches (remote). f_WT=2 = remote. Scale: Peru/Lima location (companies
+// hiring here) + LATAM + US/Worldwide (strict rule filters out those that don't accept LATAM/Peru).
 const QUERIES = ["AI Engineer", "LLM Engineer", "Generative AI Engineer", "Machine Learning Engineer", "AI Developer"];
 const LOCATIONS = ["Peru", "Lima", "Latin America", "United States", "Worldwide"];
-const PAGES = 5; // start=0,25,50,75,100 por query/location (discovery más profundo)
+const PAGES = 5; // start=0,25,50,75,100 per query/location (deeper discovery)
 
 const decode = (s) => (s || "")
   .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
@@ -60,7 +60,7 @@ const main = async () => {
   const known = await loadKnown();
   const seen = new Set();
   const queue = [];
-  // 1) recolectar tarjetas (rápido)
+  // 1) collect cards (fast)
   for (const q of QUERIES) {
     for (const loc of LOCATIONS) {
       for (let p = 0; p < PAGES; p++) {
@@ -79,19 +79,19 @@ const main = async () => {
       }
     }
   }
-  console.error(`\nTarjetas nuevas a enriquecer con detalle: ${queue.length}`);
-  // 2) traer descripción de cada una (LENTO) y guardar con raw_text
+  console.error(`\nNew cards to enrich with detail: ${queue.length}`);
+  // 2) fetch description for each one (SLOW) and save with raw_text
   let ok = 0;
   for (const job of queue) {
     const d = await fetchDetail(job.id);
     job.raw_text = d.text;
-    if (d.criteria?.length) job.raw_text += `\n\n[Criterios: ${d.criteria.join(" · ")}]`;
+    if (d.criteria?.length) job.raw_text += `\n\n[Criteria: ${d.criteria.join(" · ")}]`;
     await writeJob(job);
     ok++;
     if (ok % 10 === 0) process.stderr.write(`  detalle ${ok}/${queue.length}\n`);
-    await sleep(jitter(900, 1900)); // pausa humana entre detalles
+    await sleep(jitter(900, 1900)); // human-like pause between details
   }
-  console.error(`\nLinkedIn guest: ${ok} ofertas guardadas con descripción → Postgres`);
+  console.error(`\nLinkedIn guest: ${ok} postings saved with description → Postgres`);
   await closePool();
 };
 

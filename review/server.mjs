@@ -1,11 +1,11 @@
-// Dashboard de revisión local — servidor HTTP sin dependencias (Node nativo).
+// Local review dashboard — HTTP server with no dependencies (native Node).
 // - GET  /                  -> UI
-// - GET  /api/jobs          -> ofertas puntuadas (con filtros por query string)
-// - GET  /api/jobs/:id/text -> raw_text bajo demanda (lazy) desde jobs/<id>.json
-// - POST /api/ingest        -> SUMIDERO: navegador -> disco (el texto no pasa por el chat)
-// - POST /api/decision      -> append a decisions.jsonl
-// - POST /api/learn         -> corre learn.mjs + re-scorea
-// Uso: node review/server.mjs   ->  http://localhost:5173
+// - GET  /api/jobs          -> scored postings (with query string filters)
+// - GET  /api/jobs/:id/text -> raw_text on demand (lazy) from jobs/<id>.json
+// - POST /api/ingest        -> SINK: browser -> disk (text does not pass through the chat)
+// - POST /api/decision      -> append to decisions.jsonl
+// - POST /api/learn         -> runs learn.mjs + re-scores
+// Usage: node review/server.mjs   ->  http://localhost:5173
 import { createServer } from "node:http";
 import { readFile, appendFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
@@ -68,11 +68,11 @@ const server = createServer(async (req, res) => {
       const id = decodeURIComponent(m[1]);
       const src = url.searchParams.get("source");
       const job = await readJob(src, id);
-      return send(res, 200, { text: job?.raw_text || job?.description || "(sin detalle cargado todavía)" });
+      return send(res, 200, { text: job?.raw_text || job?.description || "(no detail loaded yet)" });
     }
 
     if (p === "/api/ingest" && req.method === "POST") {
-      // Sumidero: texto del navegador -> disco. NO pasa por el contexto del modelo.
+      // Sink: browser text -> disk. Does NOT pass through the model's context.
       const c = await readBody(req);
       const job = {
         source: c.source || "linkedin", id: String(c.id), title: c.t || c.title,
@@ -80,12 +80,12 @@ const server = createServer(async (req, res) => {
         raw_text: c.raw_text || c.text || "", easyApply: !!c.ea, posted: c.posted || null,
         salary: c.salary || null, fetched_at: new Date().toISOString(),
       };
-      if (!job.id || !job.title) return send(res, 400, { ok: false, error: "faltan id/title" });
+      if (!job.id || !job.title) return send(res, 400, { ok: false, error: "missing id/title" });
       await ensureDirs();
       const known = await loadKnown();
       const isNew = !isKnown(known, job);
       if (isNew) await upsertIndex(job);
-      if (job.raw_text) await writeJob(job); // siempre actualiza el detalle si llegó
+      if (job.raw_text) await writeJob(job); // always updates detail if provided
       return send(res, 200, { ok: true, isNew, id: job.id });
     }
 
@@ -97,7 +97,7 @@ const server = createServer(async (req, res) => {
     }
 
     if (p === "/api/feedback" && req.method === "POST") {
-      // Caja de feedback/preguntas: el usuario deja notas y yo las leo en lote.
+      // Feedback/questions box: the user leaves notes and they are read in batch.
       const f = await readBody(req);
       if (!f.text) return send(res, 400, { ok: false });
       await appendFile(path.join(ROOT, "data", "feedback.jsonl"),
@@ -111,7 +111,7 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true, log: (learn.out + "\n" + score.out).slice(-2000) });
     }
 
-    // --- estáticos ---
+    // --- static files ---
     if (p === "/" || p === "/index.html") {
       return send(res, 200, await readFile(path.join(PUBLIC, "index.html")), "text/html; charset=utf-8");
     }
@@ -121,4 +121,4 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.error(`Dashboard de revisión -> http://localhost:${PORT}`));
+server.listen(PORT, () => console.error(`Review dashboard -> http://localhost:${PORT}`));

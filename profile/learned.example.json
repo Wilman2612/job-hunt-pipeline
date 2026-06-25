@@ -5,5 +5,5 @@
   "paused_companies": [],
   "already_applied": [],
   "peruvian_companies": ["[local companies in your country you do NOT want to apply to]"],
-  "_note": "Preferencias aprendidas en la fase de entrenamiento (feedback del candidato). 'peruvian_companies' = empresas locales a evitar (renómbralo si no aplica)."
+  "_note": "Preferences learned during the training phase (candidate feedback). 'peruvian_companies' = local companies to avoid (rename if not applicable)."
 }

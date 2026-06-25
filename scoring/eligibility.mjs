@@ -1,18 +1,18 @@
-// Elegibilidad geográfica SOURCE-AWARE (feedback de the candidate, jun 2026):
-// - LinkedIn = ESTRICTO: "remoto" se asume atado al país de la ubicación, salvo apertura explícita
-//   (worldwide/anywhere/Latin America/Americas/Perú).
-// - Boards remote-first (remotive, remoteok, weworkremotely, jobicy, workingnomads, himalayas,
-//   arbeitnow, torre) = LAXO: elegible por defecto, salvo restricción dura explícita.
-// - US (cualquier fuente): debe decir EXPLÍCITO que acepta LATAM/Perú, si no → no elegible.
-// - Onsite/híbrido (cualquier fuente) → no elegible (the candidate quiere remoto pleno).
-// - Perú + empresa extranjera → elegible.
+// SOURCE-AWARE geographic eligibility:
+// - LinkedIn = STRICT: "remote" is assumed tied to the location's country, unless explicit openness
+//   (worldwide/anywhere/Latin America/Americas/Peru).
+// - Remote-first boards (remotive, remoteok, weworkremotely, jobicy, workingnomads, himalayas,
+//   arbeitnow, torre) = LAX: eligible by default, unless an explicit hard restriction.
+// - US (any source): must EXPLICITLY say it accepts LATAM/Peru, otherwise → not eligible.
+// - Onsite/hybrid (any source) → not eligible (the candidate wants fully remote).
+// - Peru + foreign company → eligible.
 // classify(location, rawText, source) -> { region, eligibleForPeru, evidence }
 
 const lc = (s) => (s || "").toLowerCase();
-// ESTRICTO = la ubicación ata la oferta a su país salvo apertura explícita.
-// LinkedIn + páginas de carrera de empresa (ATS: greenhouse/ashby/lever): un "United States"
-// en el location ES un trabajo US. Geo POR-ANUNCIO (no se bloquea la empresa: un mismo
-// empleador puede tener un rol worldwide que el paso 3 sí deja pasar).
+// STRICT = the location ties the posting to its country unless explicit openness.
+// LinkedIn + company career pages (ATS: greenhouse/ashby/lever): a "United States"
+// in the location IS a US job. Geo is PER-POSTING (company is not blocked: the same
+// employer may have a worldwide role that step 3 will let through).
 const STRICT_SOURCES = new Set(["linkedin", "greenhouse", "ashby", "lever"]);
 
 const RX = {
@@ -61,43 +61,43 @@ export function classify(location = "", rawText = "", source = "linkedin") {
   const hay = lc(`${location}\n${rawText}`);
   const strict = STRICT_SOURCES.has(source);
 
-  // 0) "X Only" en el campo de región (boards: Remotive/WWR/Jobicy suelen decir "USA Only", "Europe Only").
+  // 0) "X Only" in the region field (boards: Remotive/WWR/Jobicy often say "USA Only", "Europe Only").
   const onlyM = loc.match(/\b(usa?|u\.s\.a?|north america|europe|emea|eu|uk|united kingdom|canada|india|apac|australia)\s*[-\s]?only\b/i);
-  if (onlyM && !/latin|americas|latam|peru/i.test(hay)) return mk("restricted", false, `región restringida: "${onlyM[0]}"`);
+  if (onlyM && !/latin|americas|latam|peru/i.test(hay)) return mk("restricted", false, `restricted region: "${onlyM[0]}"`);
 
-  // 1) Restricciones duras explícitas (cualquier fuente).
-  if (RX.usOnly.test(hay)) return mk("us_only", false, "restricción US explícita");
-  if (RX.euOnly.test(hay)) return mk("eu_only", false, "restricción EU explícita");
-  if (RX.ukOnly.test(hay)) return mk("uk_only", false, "restricción UK explícita");
+  // 1) Explicit hard restrictions (any source).
+  if (RX.usOnly.test(hay)) return mk("us_only", false, "explicit US restriction");
+  if (RX.euOnly.test(hay)) return mk("eu_only", false, "explicit EU restriction");
+  if (RX.ukOnly.test(hay)) return mk("uk_only", false, "explicit UK restriction");
 
-  // 2) Onsite/híbrido sin remoto pleno (cualquier fuente) → no sirve.
-  if (RX.onsite.test(hay) && !RX.remoteFull.test(hay)) return mk("restricted", false, "onsite/híbrido — no remoto pleno");
+  // 2) Onsite/hybrid without fully remote (any source) → not useful.
+  if (RX.onsite.test(hay) && !RX.remoteFull.test(hay)) return mk("restricted", false, "onsite/hybrid — not fully remote");
 
-  // 3) Apertura explícita a la región de the candidate (cualquier fuente).
-  if (RX.peru.test(loc) || RX.peru.test(hay)) return mk("latam_ok", true, "menciona Perú/Lima (verificar empresa no-peruana)");
-  if (RX.latamOpen.test(hay)) return mk("latam_ok", true, "apertura LATAM/Américas explícita");
-  if (RX.worldwide.test(hay)) return mk("worldwide", true, "remoto worldwide/anywhere explícito");
+  // 3) Explicit openness to the candidate's region (any source).
+  if (RX.peru.test(loc) || RX.peru.test(hay)) return mk("latam_ok", true, "mentions Peru/Lima (verify non-Peruvian company)");
+  if (RX.latamOpen.test(hay)) return mk("latam_ok", true, "explicit LATAM/Americas openness");
+  if (RX.worldwide.test(hay)) return mk("worldwide", true, "explicit worldwide/anywhere remote");
 
   const country = detectCountry(loc) || (strict ? detectCountry(lc(rawText).slice(0, 300)) : null);
 
-  // 4) LinkedIn ESTRICTO (incluye la regla US): la ubicación ata la oferta a su país,
-  //    salvo apertura explícita (ya verificada arriba).
+  // 4) STRICT LinkedIn (includes US rule): location ties posting to its country,
+  //    unless explicit openness (already checked above).
   if (strict) {
-    if (country && US_NAMES.includes(country)) return mk("us_only", false, "LinkedIn: ubicación US sin apertura LATAM explícita");
-    if (country && !["peru", "perú"].includes(country)) return mk(`country:${country}`, false, `LinkedIn: ubicación ${country}, sin apertura explícita`);
-    return mk("unknown", true, "LinkedIn remoto sin país ni apertura — verificar");
+    if (country && US_NAMES.includes(country)) return mk("us_only", false, "LinkedIn: US location without explicit LATAM openness");
+    if (country && !["peru", "perú"].includes(country)) return mk(`country:${country}`, false, `LinkedIn: location ${country}, no explicit openness`);
+    return mk("unknown", true, "LinkedIn remote with no country or openness — verify");
   }
 
-  // 5) Boards remote-first LAXOS: cada fuente trae su propio campo de ubicación/región.
-  //    Sin restricción dura explícita (paso 1) ni onsite → elegible por defecto.
-  return mk(country ? `remote:${country}` : "remote", true, `board remote-first (${source}) — sin restricción dura`);
+  // 5) LAX remote-first boards: each source has its own location/region field.
+  //    No explicit hard restriction (step 1) and not onsite → eligible by default.
+  return mk(country ? `remote:${country}` : "remote", true, `remote-first board (${source}) — no hard restriction`);
 }
 
 export function badge(region) {
   if (!region) return "❓";
   if (region.startsWith("country:")) return `⛔ ${region.split(":")[1]}`;
   if (region.startsWith("remote:")) return `✅ Remoto (${region.split(":")[1]})`;
-  return ({ worldwide: "✅ Worldwide", latam_ok: "✅ LATAM", americas: "✅ Américas", remote: "✅ Remoto",
-    unknown: "❓ Incierto", us_only: "⛔ US-only", eu_only: "⛔ EU-only", uk_only: "⛔ UK-only", restricted: "⛔ Onsite/Restringido",
-    "no-aplica": "🚫 No aplicable" })[region] || "❓";
+  return ({ worldwide: "✅ Worldwide", latam_ok: "✅ LATAM", americas: "✅ Americas", remote: "✅ Remote",
+    unknown: "❓ Uncertain", us_only: "⛔ US-only", eu_only: "⛔ EU-only", uk_only: "⛔ UK-only", restricted: "⛔ Onsite/Restricted",
+    "no-aplica": "🚫 Not applicable" })[region] || "❓";
 }

@@ -1,6 +1,6 @@
-// Torre.ai — 36k+ oportunidades, LATAM-friendly. API pública POST (sin auth).
-// Varias queries AI × size grande → dedup → guarda con raw_text (objective+tagline+skills+comp).
-// Torre es board remote-first (elegibilidad laxa). Uso: node --env-file=.env sources/torre.mjs
+// Torre.ai — 36k+ opportunities, LATAM-friendly. Public POST API (no auth).
+// Multiple AI queries × large size → dedup → saves with raw_text (objective+tagline+skills+comp).
+// Torre is a remote-first board (lax eligibility). Usage: node --env-file=.env sources/torre.mjs
 import { ensureDirs, loadKnown, isKnown, writeJob, closePool } from "../lib/store.mjs";
 
 const UA = "Mozilla/5.0 (job-hunt-bot; you@example.com)";
@@ -19,8 +19,8 @@ async function search(text, size = 20, attempt = 1) {
       body: JSON.stringify({ and: [{ "skill/role": { text, experience: "potential-to-develop" } }] }),
     });
     clearTimeout(t);
-    if (r.status === 429 || r.status === 400) { // rate-limited → backoff y reintenta
-      if (attempt <= 3) { const w = 30000 * attempt; console.error(`[torre ${text}] ${r.status} → espera ${w / 1000}s`); await sleep(w); return search(text, size, attempt + 1); }
+    if (r.status === 429 || r.status === 400) { // rate-limited → backoff and retry
+      if (attempt <= 3) { const w = 30000 * attempt; console.error(`[torre ${text}] ${r.status} → waiting ${w / 1000}s`); await sleep(w); return search(text, size, attempt + 1); }
       throw new Error(`HTTP ${r.status} tras reintentos`);
     }
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -44,8 +44,8 @@ const main = async () => {
       const skills = (o.skills || []).map((s) => s.name || s).filter(Boolean);
       const job = {
         source: "torre", id: String(o.id),
-        title: o.objective || "(sin título)",
-        company: o.organizations?.[0]?.name || "(confidencial)",
+        title: o.objective || "(no title)",
+        company: o.organizations?.[0]?.name || "(confidential)",
         location: (o.locations || []).join(", ") || (o.remote ? "Remote" : ""),
         url: `https://torre.ai/post/${o.id}`,
         raw_text: `${o.objective || ""}. ${o.tagline || ""}. Skills: ${skills.join(", ")}.${o.remote ? " Remote." : ""}`,
@@ -56,10 +56,10 @@ const main = async () => {
       await writeJob(job);
       added++; newInQ++;
     }
-    process.stderr.write(`  [${q}] ${results.length} resultados, +${newInQ} nuevas (total +${added})\n`);
-    await sleep(10000); // lento a propósito para no rate-limitear (no hay prisa)
+    process.stderr.write(`  [${q}] ${results.length} results, +${newInQ} new (total +${added})\n`);
+    await sleep(10000); // intentionally slow to avoid rate-limiting (no rush)
   }
-  console.error(`Torre: +${added} ofertas nuevas → Postgres`);
+  console.error(`Torre: +${added} new postings → Postgres`);
   await closePool();
 };
 main();

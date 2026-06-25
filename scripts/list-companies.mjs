@@ -1,5 +1,5 @@
-// Lista empresas (de ofertas elegibles/analizadas) que aún no tienen reputación investigada.
-// Uso: node --env-file=.env scripts/list-companies.mjs [--top 20]
+// Lists companies (from eligible/analyzed postings) that don't yet have researched reputation.
+// Usage: node --env-file=.env scripts/list-companies.mjs [--top 20]
 import { q, closePool } from "../lib/store.mjs";
 const top = Number(process.argv.find((a)=>a.startsWith("--top="))?.split("=")[1] || 20);
 

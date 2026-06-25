@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>SIGNAL DESK — tu head hunter</title>
+<title>SIGNAL DESK — your head hunter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -91,41 +91,41 @@
 </head>
 <body>
 <header>
-  <div class="brand"><span class="mk">◢</span> SIGNAL DESK <span class="sub">tu head hunter</span></div>
-  <select id="status"><option value="new">sin decidir</option><option value="all">todas</option><option value="approve">aprobadas</option><option value="maybe">tal vez</option><option value="reject">descartadas</option></select>
-  <select id="region"><option value="elig">elegibles</option><option value="all">todas las geos</option></select>
-  <input type="text" id="q" placeholder="filtrar…">
+  <div class="brand"><span class="mk">◢</span> SIGNAL DESK <span class="sub">your head hunter</span></div>
+  <select id="status"><option value="new">undecided</option><option value="all">all</option><option value="approve">approved</option><option value="maybe">maybe</option><option value="reject">rejected</option></select>
+  <select id="region"><option value="elig">eligible</option><option value="all">all geos</option></select>
+  <input type="text" id="q" placeholder="filter…">
   <label style="color:var(--mut2);font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:5px">MATCH≥<input type="range" id="minM" min="0" max="100" value="60" style="width:80px;accent-color:var(--gold)"><span id="minMv" style="color:var(--ink)">60</span></label>
-  <label style="color:var(--mut2);font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="floor" checked> ocultar &lt;$45k</label>
+  <label style="color:var(--mut2);font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:4px"><input type="checkbox" id="floor" checked> hide &lt;$45k</label>
   <div class="counters">
-    <div class="ctr an"><b id="c-an">0</b><span>analiz</span></div>
-    <div class="ctr go"><b id="c-go">0</b><span>sí</span></div>
-    <div class="ctr may"><b id="c-may">0</b><span>quizá</span></div>
+    <div class="ctr an"><b id="c-an">0</b><span>analyzed</span></div>
+    <div class="ctr go"><b id="c-go">0</b><span>yes</span></div>
+    <div class="ctr may"><b id="c-may">0</b><span>maybe</span></div>
     <div class="ctr no"><b id="c-no">0</b><span>no</span></div>
   </div>
-  <button class="learn" id="learn">⟳ reentrenar</button>
+  <button class="learn" id="learn">⟳ retrain</button>
 </header>
 
 <div class="stage"><div class="dossier" id="dossier"></div></div>
 
 <div class="decide">
-  <button class="nav" id="prev" title="anterior (←)">◀</button>
-  <button class="big no" id="b-no">✕ Paso</button>
-  <button class="big may" id="b-may">🤔 Quizá</button>
+  <button class="nav" id="prev" title="previous (←)">◀</button>
+  <button class="big no" id="b-no">✕ Pass</button>
+  <button class="big may" id="b-may">🤔 Maybe</button>
   <span class="stars" id="stars"></span>
-  <button class="big yes" id="b-yes">✓ Me interesa</button>
+  <button class="big yes" id="b-yes">✓ Interested</button>
   <span class="pos" id="pos">0/0</span>
-  <button class="nav" id="next" title="siguiente (→)">▶</button>
-  <span class="khint">← → moverse · a sí · r no · m quizá</span>
+  <button class="nav" id="next" title="next (→)">▶</button>
+  <span class="khint">← → navigate · a yes · r no · m maybe</span>
 </div>
 
-<div id="mini"><div class="mt">PANORAMA · want×qual</div><svg id="minisvg" viewBox="0 0 150 110"></svg></div>
+<div id="mini"><div class="mt">OVERVIEW · want×qual</div><svg id="minisvg" viewBox="0 0 150 110"></svg></div>
 
 <div id="fb">
-  <button id="fb-toggle">💬 nota / pregunta</button>
+  <button id="fb-toggle">💬 note / question</button>
   <div id="fb-panel" style="display:none">
-    <textarea id="fb-text" placeholder="preguntas, comentarios, feedback… (se guardan para que el head hunter los lea y actúe en lote)"></textarea>
-    <div id="fb-row"><span id="fb-ctx"></span><button id="fb-send">Enviar</button></div>
+    <textarea id="fb-text" placeholder="questions, comments, feedback… (saved for the head hunter to read and act on in batch)"></textarea>
+    <div id="fb-row"><span id="fb-ctx"></span><button id="fb-send">Send</button></div>
   </div>
 </div>
 
@@ -134,12 +134,12 @@ const $=(s,e=document)=>e.querySelector(s);
 let ALL=[],deck=[],i=0;
 const matchOf=j=>(j.want!=null&&j.qual!=null&&(j.want+j.qual)>0)?Math.round(2*j.want*j.qual/(j.want+j.qual)):null;
 function eligOf(j){const g=j.enrich?.geo;return (g&&g.region)?g.region:(j.eligibility?.region||"unknown");}
-const eligMap={worldwide:["go","🌍 Worldwide"],latam_ok:["go","🌎 LATAM"],americas:["go","🌎 Américas"],remote:["go","✅ Remoto"],unknown:["warn","❓ Incierta"],us_only:["stop","⛔ Solo EE.UU."],eu_only:["stop","⛔ Solo Europa"],uk_only:["stop","⛔ Solo UK"],restricted:["stop","⛔ Onsite/Restringida"],"no-aplica":["stop","🚫 No aplicable"],"empresa-peruana":["stop","🇵🇪 Empresa peruana"]};
-const eligInfo=r=>{ if(!r)return["warn","❓ Incierta"]; if(r.startsWith("remote:"))return["go","✅ Remoto ("+r.split(":")[1]+")"]; if(r.startsWith("country:"))return["stop","⛔ "+r.split(":")[1]]; return eligMap[r]||["stop","⛔ "+r]; };
-// Marketplaces/staff-aug: no son empleador directo — te registras en la plataforma, no aplicas a 1 rol.
+const eligMap={worldwide:["go","🌍 Worldwide"],latam_ok:["go","🌎 LATAM"],americas:["go","🌎 Americas"],remote:["go","✅ Remote"],unknown:["warn","❓ Uncertain"],us_only:["stop","⛔ US-only"],eu_only:["stop","⛔ EU-only"],uk_only:["stop","⛔ UK-only"],restricted:["stop","⛔ Onsite/Restricted"],"no-aplica":["stop","🚫 Not applicable"],"empresa-peruana":["stop","🇵🇪 Local company"]};
+const eligInfo=r=>{ if(!r)return["warn","❓ Uncertain"]; if(r.startsWith("remote:"))return["go","✅ Remote ("+r.split(":")[1]+")"]; if(r.startsWith("country:"))return["stop","⛔ "+r.split(":")[1]]; return eligMap[r]||["stop","⛔ "+r]; };
+// Marketplaces/staff-aug: not a direct employer — you register on the platform, don't apply to 1 role.
 const MARKETPLACES=["a.team","a-team","lemon.io","proxify","bairesdev","toptal","turing","crossover","andela","gun.io","arc.dev","x-team","braintrust","gigster","crossing hurdles","revelo","trio.dev"];
 const isMarketplace=co=>{const c=(co||"").toLowerCase();return MARKETPLACES.some(m=>c.includes(m));};
-const VLBL={good:'buena',mixed:'mixta',caution:'precaución',unknown:'sin datos'};
+const VLBL={good:'good',mixed:'mixed',caution:'caution',unknown:'no data'};
 const VC={good:'go',mixed:'warn',caution:'stop',unknown:'mut'};
 const COL={go:'#46C68A',warn:'#E6A93C',stop:'#E05570',mut:'#56627A'};
 function annual(s){if(!s)return null;const t=(s+"").toLowerCase().replace(/,/g,"");let m;
@@ -148,7 +148,7 @@ function annual(s){if(!s)return null;const t=(s+"").toLowerCase().replace(/,/g,"
   const nums=[...t.matchAll(/(\d+(?:\.\d+)?)\s*k/g)].map(x=>+x[1]*1000),big=[...t.matchAll(/(\d{4,6})/g)].map(x=>+x[1]);
   const all=[...nums,...big];return all.length?all.reduce((a,b)=>a+b,0)/all.length:null;}
 const usd=v=>v==null?"s/dato":(v>=1000?`$${Math.round(v/1000)}k`:`$${v}`);
-function fmtDate(p){if(!p)return"";const d=new Date(p);if(!isNaN(d)){const days=Math.round((Date.now()-d)/864e5);return days<=0?"hoy":days===1?"ayer":days<30?`hace ${days}d`:d.toISOString().slice(0,10);}return(p+"").slice(0,16);}
+function fmtDate(p){if(!p)return"";const d=new Date(p);if(!isNaN(d)){const days=Math.round((Date.now()-d)/864e5);return days<=0?"today":days===1?"yesterday":days<30?`${days}d ago`:d.toISOString().slice(0,10);}return(p+"").slice(0,16);}
 function barColor(v){const h=Math.max(0,Math.min(145,(v-25)/60*145));return`hsl(${h} 65% 52%)`;}
 
 async function fetchAll(){
@@ -167,7 +167,7 @@ function apply(){
     if(q&&!(j.title+" "+j.company).toLowerCase().includes(q))return false;
     return true;
   }).sort((a,b)=>b.match-a.match);
-  // 1 oferta por empresa (la de mejor MATCH) — evita duplicados de misma empresa
+  // 1 posting per company (the best MATCH) — avoids duplicates from the same company
   const seenCo=new Set(); deck=deck.filter(j=>{const k=(j.company||'').toLowerCase().trim();if(!k)return true;if(seenCo.has(k))return false;seenCo.add(k);return true;});
   i=Math.min(i,Math.max(0,deck.length-1));
   renderCounters();render();renderMini();
@@ -187,7 +187,7 @@ function statBar(val,bands,markers,max){
 }
 function render(){
   const d=$("#dossier");
-  if(!deck.length){d.innerHTML=`<div class="empty">— sin oportunidades con estos filtros —</div>`;$("#pos").textContent="0/0";$("#stars").innerHTML="";return;}
+  if(!deck.length){d.innerHTML=`<div class="empty">— no opportunities matching these filters —</div>`;$("#pos").textContent="0/0";$("#stars").innerHTML="";return;}
   const j=deck[i],en=j.enrich||{},[ec,etxt]=eligInfo(j.elig),ci=j.companyIntel;
   const sal=j.salaryUsd??j.annual;
   const mx=Math.max(120000,sal||0);
@@ -195,45 +195,45 @@ function render(){
   d.innerHTML=`
     <div class="score">
       <div class="matchbox"><div class="n" style="color:${barColor(j.match)}">${j.match}</div><div class="l">MATCH</div></div>
-      <div class="stat"><div class="sl"><span>❤ Lo quieres</span><b>${j.want??'–'}</b></div>${statBar(j.want,null,null,100)}</div>
-      <div class="stat"><div class="sl"><span>✓ Calificas</span><b>${j.qual??'–'}</b></div>${statBar(j.qual,null,null,100)}</div>
-      <div class="stat"><div class="sl"><span>💰 Salario/año${j.salaryUsd?'':' (est.)'}</span><b class="gold-c">${usd(sal)}${j.salary?` <span style="color:var(--mut2);font-weight:400">(${j.salary})</span>`:''}</b></div>${statBar(sal,[{from:0,to:45000,c:'poor'},{from:45000,to:65000,c:'ok'},{from:65000,to:mx,c:'good'}],[{at:45000,c:'floor'},{at:65000}],mx)}<div class="skv" style="margin-top:3px"><span>piso $45k</span><span>objetivo $65k</span></div></div>
+      <div class="stat"><div class="sl"><span>❤ Want</span><b>${j.want??'–'}</b></div>${statBar(j.want,null,null,100)}</div>
+      <div class="stat"><div class="sl"><span>✓ Qualify</span><b>${j.qual??'–'}</b></div>${statBar(j.qual,null,null,100)}</div>
+      <div class="stat"><div class="sl"><span>💰 Salary/year${j.salaryUsd?'':' (est.)'}</span><b class="gold-c">${usd(sal)}${j.salary?` <span style="color:var(--mut2);font-weight:400">(${j.salary})</span>`:''}</b></div>${statBar(sal,[{from:0,to:45000,c:'poor'},{from:45000,to:65000,c:'ok'},{from:65000,to:mx,c:'good'}],[{at:45000,c:'floor'},{at:65000}],mx)}<div class="skv" style="margin-top:3px"><span>floor $45k</span><span>target $65k</span></div></div>
       <div class="sdiv"></div>
       <div class="pill lead ${ec}-c"><span class="dot" style="background:${COL[ec]}"></span>${etxt}</div>
-      ${isMarketplace(j.company)?`<div class="pill" style="color:var(--semantic);border-color:#3d2f55" title="No es empleador directo: te registras en la plataforma y te emparejan con clientes.">🏪 Marketplace · te registras en la plataforma</div>`:''}
-      ${en.tz?`<div class="skv"><span>🕒 Horario</span><b>${en.tz}${en.overlap_lima?' · '+en.overlap_lima:''}</b></div>`:''}
-      <div class="skv"><span>Tipo</span><b>${en.employment&&en.employment!=='unknown'?en.employment:'—'}${(en.effort==='easy-apply'||j.easyApply)?' · ⚡fácil':''}</b></div>
-      ${ci?`<div class="pill ${VC[v]}-c"><span class="dot" style="background:${COL[VC[v]]}"></span>🏢 Reputación ${VLBL[v]}${(ci.rating||'').match(/\d(?:\.\d)?\/5/)?' · '+ci.rating.match(/\d(?:\.\d)?\/5/)[0]:''}</div>`:`<div class="pill mut-c"><span class="dot" style="background:${COL.mut}"></span>🏢 reputación s/investigar</div>`}
+      ${isMarketplace(j.company)?`<div class="pill" style="color:var(--semantic);border-color:#3d2f55" title="Not a direct employer: you register on the platform and get matched with clients.">🏪 Marketplace · register on the platform</div>`:''}
+      ${en.tz?`<div class="skv"><span>🕒 Schedule</span><b>${en.tz}${en.overlap_lima?' · '+en.overlap_lima:''}</b></div>`:''}
+      <div class="skv"><span>Type</span><b>${en.employment&&en.employment!=='unknown'?en.employment:'—'}${(en.effort==='easy-apply'||j.easyApply)?' · ⚡easy':''}</b></div>
+      ${ci?`<div class="pill ${VC[v]}-c"><span class="dot" style="background:${COL[VC[v]]}"></span>🏢 Reputation: ${VLBL[v]}${(ci.rating||'').match(/\d(?:\.\d)?\/5/)?' · '+ci.rating.match(/\d(?:\.\d)?\/5/)[0]:''}</div>`:`<div class="pill mut-c"><span class="dot" style="background:${COL.mut}"></span>🏢 reputation not researched</div>`}
     </div>
     <div class="story">
-      <div class="shead">${j.company||'?'} <span class="src">· vía ${j.source}${j.posted?' · 📅 '+fmtDate(j.posted):''}</span></div>
+      <div class="shead">${j.company||'?'} <span class="src">· via ${j.source}${j.posted?' · 📅 '+fmtDate(j.posted):''}</span></div>
       <h1 class="t">${j.title||''}</h1>
       ${en.pitch?`<div class="pitch">${en.pitch}</div>`:''}
-      ${en.plain?`<div class="sec"><div class="h">En cristiano</div><div class="b">${en.plain}</div></div>`:(en.summary?`<div class="sec"><div class="b">${en.summary}</div></div>`:'')}
+      ${en.plain?`<div class="sec"><div class="h">In plain English</div><div class="b">${en.plain}</div></div>`:(en.summary?`<div class="sec"><div class="b">${en.summary}</div></div>`:'')}
       <div class="grid2">
-        ${en.they_want?`<div class="sec"><div class="h">Qué buscan</div><div class="b">${en.they_want}</div></div>`:''}
-        ${en.hooks?.length?`<div class="sec"><div class="h">✂ Enfatiza en tu CV</div><div class="tags">${en.hooks.map(h=>`<span class="tag">${h}</span>`).join('')}</div></div>`:''}
-        ${en.gaps?.length?`<div class="sec"><div class="h">Te faltaría</div><div class="tags">${en.gaps.map(g=>`<span class="tag gap">${g}</span>`).join('')}</div></div>`:''}
-        ${en.why?`<div class="sec why"><div class="h">Por qué este match</div><div class="b">${en.why}</div></div>`:''}
+        ${en.they_want?`<div class="sec"><div class="h">What they want</div><div class="b">${en.they_want}</div></div>`:''}
+        ${en.hooks?.length?`<div class="sec"><div class="h">✂ Emphasize in your CV</div><div class="tags">${en.hooks.map(h=>`<span class="tag">${h}</span>`).join('')}</div></div>`:''}
+        ${en.gaps?.length?`<div class="sec"><div class="h">You'd be missing</div><div class="tags">${en.gaps.map(g=>`<span class="tag gap">${g}</span>`).join('')}</div></div>`:''}
+        ${en.why?`<div class="sec why"><div class="h">Why this match</div><div class="b">${en.why}</div></div>`:''}
       </div>
-      ${en.requirements?.length?`<div class="sec"><div class="h">Requisitos vs tu perfil <span style="color:var(--mut2);font-weight:400">(✅cumple 🟡estiro △gap ⛔blocker)</span></div>${en.requirements.map(r=>`<div class="kv" style="font-size:12.5px${r.level==='nice'?';opacity:.6':''}">${({meets:'✅',stretch:'🟡',gap:'△',blocker:'⛔'})[r.status]||'•'} <b>${r.asks}</b>${r.level==='nice'?' <span style="font-size:10px;color:var(--mut2)">·opcional</span>':' <span style="font-size:10px;color:var(--gold)">·req</span>'}${r.note?' — '+r.note:''}</div>`).join('')}</div>`:''}
-      ${en.stretch?`<div class="sec"><div class="h">✂ A defender / estirar en CV</div><div class="b">${en.stretch}</div></div>`:''}
-      ${ci?`<div class="sec"><div class="h">🏢 Reputación de la empresa · ${VLBL[v]}</div>
+      ${en.requirements?.length?`<div class="sec"><div class="h">Requirements vs your profile <span style="color:var(--mut2);font-weight:400">(✅meets 🟡stretch △gap ⛔blocker)</span></div>${en.requirements.map(r=>`<div class="kv" style="font-size:12.5px${r.level==='nice'?';opacity:.6':''}">${({meets:'✅',stretch:'🟡',gap:'△',blocker:'⛔'})[r.status]||'•'} <b>${r.asks}</b>${r.level==='nice'?' <span style="font-size:10px;color:var(--mut2)">·optional</span>':' <span style="font-size:10px;color:var(--gold)">·req</span>'}${r.note?' — '+r.note:''}</div>`).join('')}</div>`:''}
+      ${en.stretch?`<div class="sec"><div class="h">✂ To defend / stretch in CV</div><div class="b">${en.stretch}</div></div>`:''}
+      ${ci?`<div class="sec"><div class="h">🏢 Company reputation · ${VLBL[v]}</div>
         <div class="rep ${v}">
-          <div><b>${ci.rating||'sin rating público'}</b>${ci.size?` · ${ci.size}`:''}</div>
-          ${ci.culture?`<div><b>Cultura:</b> ${ci.culture}</div>`:''}
-          ${ci.pay?`<div><b>Pago:</b> ${ci.pay}</div>`:''}
+          <div><b>${ci.rating||'no public rating'}</b>${ci.size?` · ${ci.size}`:''}</div>
+          ${ci.culture?`<div><b>Culture:</b> ${ci.culture}</div>`:''}
+          ${ci.pay?`<div><b>Pay:</b> ${ci.pay}</div>`:''}
           ${ci.flags?.length?`<div class="fl">⚑ ${ci.flags.join(' · ')}</div>`:''}
-          ${ci.sources?.length?`<div class="srcs">fuentes: ${ci.sources.join(', ')}</div>`:''}
+          ${ci.sources?.length?`<div class="srcs">sources: ${ci.sources.join(', ')}</div>`:''}
         </div></div>`:''}
-      <div class="linkrow"><a href="${j.url}" target="_blank">↗ ${isMarketplace(j.company)?'ir a la plataforma ('+j.company+')':'abrir oferta original'}</a><button id="loadDesc">ver descripción cruda</button></div>
-      ${isMarketplace(j.company)?`<div class="kv" style="color:var(--semantic)">🏪 <b>${j.company}</b> es un marketplace de talento: te registras UNA vez en su plataforma (no por oferta) y te emparejan con clientes. Revisa su página y crea tu perfil.</div>`:''}
+      <div class="linkrow"><a href="${j.url}" target="_blank">↗ ${isMarketplace(j.company)?'go to platform ('+j.company+')':'open original posting'}</a><button id="loadDesc">view raw description</button></div>
+      ${isMarketplace(j.company)?`<div class="kv" style="color:var(--semantic)">🏪 <b>${j.company}</b> is a talent marketplace: you register ONCE on their platform (not per posting) and get matched with clients. Check their site and create your profile.</div>`:''}
       <div id="desc"></div>
     </div>`;
   $("#pos").textContent=`${i+1}/${deck.length}`;
   $("#stars").innerHTML=[1,2,3,4,5].map(n=>`<span class="${n<=(deck[i].rating||0)?'on':''}" data-r="${n}">★</span>`).join("");
   $("#stars").querySelectorAll("span").forEach(s=>s.onclick=()=>{decide(j,j.decision,+s.dataset.r);render();});
-  const ld=$("#loadDesc");if(ld)ld.onclick=async()=>{const dv=$("#desc");dv.innerHTML='<div class="desc">cargando…</div>';const r=await fetch(`/api/jobs/${encodeURIComponent(j.id)}/text?source=${encodeURIComponent(j.source)}`);dv.innerHTML=`<div class="desc">${((await r.json()).text||'').replace(/</g,'&lt;')}</div>`;};
+  const ld=$("#loadDesc");if(ld)ld.onclick=async()=>{const dv=$("#desc");dv.innerHTML='<div class="desc">loading…</div>';const r=await fetch(`/api/jobs/${encodeURIComponent(j.id)}/text?source=${encodeURIComponent(j.source)}`);dv.innerHTML=`<div class="desc">${((await r.json()).text||'').replace(/</g,'&lt;')}</div>`;};
   $("#prev").disabled=i<=0;$("#next").disabled=i>=deck.length-1;
   renderMini();
 }
@@ -259,9 +259,9 @@ document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"||e.target.
   else if(/[1-5]/.test(e.key)&&deck.length){decide(deck[i],deck[i].decision,+e.key);render();}});
 ["status","region","floor"].forEach(id=>$("#"+id).onchange=apply);$("#q").oninput=apply;
 $("#minM").oninput=()=>{$("#minMv").textContent=$("#minM").value;apply();};
-$("#learn").onclick=async()=>{$("#learn").textContent="⟳…";await fetch("/api/learn",{method:"POST"});await fetchAll();$("#learn").textContent="⟳ reentrenar";};
-$("#fb-toggle").onclick=()=>{const p=$("#fb-panel");const show=p.style.display==="none";p.style.display=show?"block":"none";if(show){const j=deck[i];$("#fb-ctx").textContent=j?`ctx: ${j.company} #${j.id}`:"(sin oferta activa)";$("#fb-text").focus();}};
-$("#fb-send").onclick=async()=>{const t=$("#fb-text").value.trim();if(!t)return;const j=deck[i];await fetch("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t,jobId:j?.id,company:j?.company})});$("#fb-text").value="";const b=$("#fb-send");b.textContent="✓ guardado";setTimeout(()=>{b.textContent="Enviar";$("#fb-panel").style.display="none";},1000);};
+$("#learn").onclick=async()=>{$("#learn").textContent="⟳…";await fetch("/api/learn",{method:"POST"});await fetchAll();$("#learn").textContent="⟳ retrain";};
+$("#fb-toggle").onclick=()=>{const p=$("#fb-panel");const show=p.style.display==="none";p.style.display=show?"block":"none";if(show){const j=deck[i];$("#fb-ctx").textContent=j?`ctx: ${j.company} #${j.id}`:"(no active posting)";$("#fb-text").focus();}};
+$("#fb-send").onclick=async()=>{const t=$("#fb-text").value.trim();if(!t)return;const j=deck[i];await fetch("/api/feedback",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t,jobId:j?.id,company:j?.company})});$("#fb-text").value="";const b=$("#fb-send");b.textContent="✓ saved";setTimeout(()=>{b.textContent="Send";$("#fb-panel").style.display="none";},1000);};
 fetchAll();
 </script>
 </body>
