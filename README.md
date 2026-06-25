@@ -72,6 +72,34 @@ npm run dash                   # review dashboard → http://localhost:5173
 
 ---
 
+## Example run (real numbers)
+
+One run against 11 sources (June 2026):
+
+```
+~11,300 postings seen
+  - 7,523 excluded at eligibility (geo-ineligible: US-only, EU-only, onsite)
+  = 3,773 eligible → scored + embedded
+
+  Score ≥ 70 → 154 candidates worth reviewing
+  Score ≥ 80 →  33 strong matches
+
+Top sources for eligible postings:
+  Greenhouse (ATS)   1,797   ← company boards via API
+  Ashby (ATS)          447
+  LinkedIn (guest)     417
+  Lever (ATS)          413
+  Torre                241
+  Get on Board         169
+  HN Who's Hiring      110
+  The Muse             103
+```
+
+The ATS connectors (Greenhouse/Ashby/Lever) alone cover 100+ AI companies directly — OpenAI, Anthropic,
+Cursor, Vercel, Cohere, Mistral, Together, Groq, and others — without going through aggregator noise.
+
+---
+
 ## Design decisions
 
 **1) Claude Sonnet for analysis, not a cheaper model.**
