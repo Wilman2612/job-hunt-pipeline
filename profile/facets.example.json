@@ -1,0 +1,13 @@
+{
+  "_doc": "Multi-query gate facets (template). Copy to profile/facets.json and fill from YOUR profile, or generate with `node --env-file=.env scoring/gen-facets.mjs`. The gate score (jobs.semantic) = mean of the top-2 POSITIVE facet similarities. The 'negative' and 'skills' facets are stored for transparency/future weighting but do NOT feed the gate score. facets.json itself is gitignored (it contains your personal background).",
+  "combination": "top2-mean-positive",
+  "facets": [
+    { "name": "role-dialect-a", "role": "positive", "text": "~35-word prose describing one role dialect you target, written like a job-description excerpt (responsibilities + stack + domain). Ground it in roles you actually want." },
+    { "name": "role-dialect-b", "role": "positive", "text": "A distinct second dialect of the same target — distinct enough that a posting written in one would score low against the other (the gate takes the top-2, so near-duplicates waste a slot)." },
+    { "name": "role-dialect-c", "role": "positive", "text": "A third distinct dialect (e.g. an infrastructure/platform framing of the same field vs an application/product framing)." },
+    { "name": "role-dialect-d", "role": "positive", "text": "A fourth distinct dialect (e.g. a customer-facing / forward-deployed framing)." },
+    { "name": "role-dialect-e", "role": "positive", "text": "A fifth distinct dialect (only if genuinely distinct from the others; otherwise use four)." },
+    { "name": "avoid-pattern", "role": "negative", "text": "The kind of role you want to AVOID, in its own words (e.g. work that merely USES a tool rather than BUILDING the thing you want to build)." },
+    { "name": "skills-background", "role": "skills", "text": "Your real background and seniority/timeline — languages, cloud, data, years — stated honestly. Used for transparency/future weighting; does not feed the gate score." }
+  ]
+}

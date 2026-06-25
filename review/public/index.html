@@ -135,7 +135,7 @@ let ALL=[],deck=[],i=0;
 const matchOf=j=>(j.want!=null&&j.qual!=null&&(j.want+j.qual)>0)?Math.round(2*j.want*j.qual/(j.want+j.qual)):null;
 function eligOf(j){const g=j.enrich?.geo;return (g&&g.region)?g.region:(j.eligibility?.region||"unknown");}
 const eligMap={worldwide:["go","🌍 Worldwide"],latam_ok:["go","🌎 LATAM"],americas:["go","🌎 Americas"],remote:["go","✅ Remote"],unknown:["warn","❓ Uncertain"],us_only:["stop","⛔ US-only"],eu_only:["stop","⛔ EU-only"],uk_only:["stop","⛔ UK-only"],restricted:["stop","⛔ Onsite/Restricted"],"no-aplica":["stop","🚫 Not applicable"],"empresa-peruana":["stop","🇵🇪 Local company"]};
-const eligInfo=r=>{ if(!r)return["warn","❓ Uncertain"]; if(r.startsWith("remote:"))return["go","✅ Remote ("+r.split(":")[1]+")"]; if(r.startsWith("country:"))return["stop","⛔ "+r.split(":")[1]]; return eligMap[r]||["stop","⛔ "+r]; };
+const eligInfo=r=>{ if(!r)return["warn","❓ Uncertain"]; if(r==="remote:united states"||r==="remote:usa")return["warn","❓ Remote (US) — verify geo"]; if(r.startsWith("remote:"))return["go","✅ Remote ("+r.split(":")[1]+")"]; if(r.startsWith("country:"))return["stop","⛔ "+r.split(":")[1]]; return eligMap[r]||["stop","⛔ "+r]; };
 // Marketplaces/staff-aug: not a direct employer — you register on the platform, don't apply to 1 role.
 const MARKETPLACES=["a.team","a-team","lemon.io","proxify","bairesdev","toptal","turing","crossover","andela","gun.io","arc.dev","x-team","braintrust","gigster","crossing hurdles","revelo","trio.dev"];
 const isMarketplace=co=>{const c=(co||"").toLowerCase();return MARKETPLACES.some(m=>c.includes(m));};
@@ -153,7 +153,8 @@ function barColor(v){const h=Math.max(0,Math.min(145,(v-25)/60*145));return`hsl(
 
 async function fetchAll(){
   const d=await(await fetch("/api/jobs?status=all&minScore=0&region=all")).json();
-  ALL=d.jobs.map(j=>({...j,match:matchOf(j),elig:eligOf(j),annual:annual(j.salary||j.enrich?.comp)}));
+  ALL=d.jobs.map(j=>{const real=matchOf(j);const prov=real==null&&j.semantic!=null;
+    return {...j,match:real??(prov?Math.round(j.semantic*100):null),provisional:prov,elig:eligOf(j),annual:annual(j.salary||j.enrich?.comp)};});
   apply();
 }
 function apply(){
@@ -194,12 +195,14 @@ function render(){
   const v=ci?(ci.verdict||"unknown"):null;
   d.innerHTML=`
     <div class="score">
-      <div class="matchbox"><div class="n" style="color:${barColor(j.match)}">${j.match}</div><div class="l">MATCH</div></div>
+      <div class="matchbox"><div class="n" style="color:${barColor(j.match)}">${j.match}</div><div class="l">${j.provisional?'GATE · unvetted':'MATCH'}</div></div>
       <div class="stat"><div class="sl"><span>❤ Want</span><b>${j.want??'–'}</b></div>${statBar(j.want,null,null,100)}</div>
       <div class="stat"><div class="sl"><span>✓ Qualify</span><b>${j.qual??'–'}</b></div>${statBar(j.qual,null,null,100)}</div>
       <div class="stat"><div class="sl"><span>💰 Salary/year${j.salaryUsd?'':' (est.)'}</span><b class="gold-c">${usd(sal)}${j.salary?` <span style="color:var(--mut2);font-weight:400">(${j.salary})</span>`:''}</b></div>${statBar(sal,[{from:0,to:45000,c:'poor'},{from:45000,to:65000,c:'ok'},{from:65000,to:mx,c:'good'}],[{at:45000,c:'floor'},{at:65000}],mx)}<div class="skv" style="margin-top:3px"><span>floor $45k</span><span>target $65k</span></div></div>
       <div class="sdiv"></div>
       <div class="pill lead ${ec}-c"><span class="dot" style="background:${COL[ec]}"></span>${etxt}</div>
+      ${j.provisional?`<div class="pill warn-c"><span class="dot" style="background:${COL.warn}"></span>⏳ Gate score — not analyzed yet</div>`:''}
+      ${j.bestFacet?`<div class="skv"><span>🎯 Best facet</span><b>${j.bestFacet}</b></div>`:''}
       ${isMarketplace(j.company)?`<div class="pill" style="color:var(--semantic);border-color:#3d2f55" title="Not a direct employer: you register on the platform and get matched with clients.">🏪 Marketplace · register on the platform</div>`:''}
       ${en.tz?`<div class="skv"><span>🕒 Schedule</span><b>${en.tz}${en.overlap_lima?' · '+en.overlap_lima:''}</b></div>`:''}
       <div class="skv"><span>Type</span><b>${en.employment&&en.employment!=='unknown'?en.employment:'—'}${(en.effort==='easy-apply'||j.easyApply)?' · ⚡easy':''}</b></div>

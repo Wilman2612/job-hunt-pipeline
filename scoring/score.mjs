@@ -22,10 +22,16 @@ function score(j, elig) {
   let s = 0;
   const bd = {};
 
-  // 1) Role match in title (0-30)
+  // 1) Role match — title first, body as fallback (0-30)
   const aiTitle = ["ai", "ml", "llm", "genai", "generative", "agent", "machine learning", "applied ai"].some((w) => title.includes(w));
-  const engTitle = ["engineer", "developer", "swe", "backend"].some((w) => title.includes(w));
-  bd.role = aiTitle && engTitle ? 30 : aiTitle ? 22 : engTitle ? 10 : 4;
+  const engTitle = ["engineer", "developer", "swe", "backend", "architect"].some((w) => title.includes(w));
+  const aiBody = ["llm", "large language model", "generative ai", "genai", "rag", "retrieval-augmented", "agent", "agentic", "langchain", "langgraph", "openai", "anthropic", "vector database", "embeddings"].some((w) => hay.includes(w));
+  if (aiTitle && engTitle)       bd.role = 30;
+  else if (aiTitle)              bd.role = 22;
+  else if (engTitle && aiBody)   bd.role = 24; // engineer by title, AI by body
+  else if (aiBody)               bd.role = 16; // AI body but vague title
+  else if (engTitle)             bd.role = 10;
+  else                           bd.role = 4;
   s += bd.role;
 
   // 2) AI depth (0-25)
@@ -66,6 +72,13 @@ function score(j, elig) {
   if ((learned.already_applied || []).map(lc).includes(lc(j.company))) { s -= 50; flags.push("Already applied"); }
 
   if (elig.region === "unknown") flags.push("❓ Uncertain eligibility — verify");
+
+  // 8) Multi-query gate bonus (embed.mjs must run first; jobs.semantic = mean of top-2 positive facet sims).
+  // Calibrated to the multi-query scale: good jobs (want>=75&qual>=70) have p50≈0.57, p10≈0.51; all-jobs p90≈0.53.
+  const sem = parseFloat(j.semantic) || 0;
+  if (sem >= 0.58) { bd.semantic = 12; s += 12; }
+  else if (sem >= 0.52) { bd.semantic = 6; s += 6; }
+  else if (sem >= 0.47) { bd.semantic = 3; s += 3; }
 
   return {
     id: String(j.id), source: j.source, title: j.title, company: j.company,

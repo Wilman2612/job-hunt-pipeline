@@ -15,11 +15,12 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { callText, hasKey, DEFAULT_MODEL, PROVIDER } from "../lib/llm.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.CV_MODEL || "claude-3-5-sonnet-latest";
-if (!KEY) { console.error("Missing ANTHROPIC_API_KEY in .env"); process.exit(1); }
+// Model is swappable (lib/llm): CV_MODEL overrides; else the provider default.
+const MODEL = process.env.CV_MODEL || DEFAULT_MODEL;
+if (!hasKey()) { console.error(`Missing API key for LLM_PROVIDER=${PROVIDER} (set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env)`); process.exit(1); }
 
 // Load agent system prompts from .claude/agents/ — single source of truth shared with Claude Code subagents.
 // Strip YAML frontmatter (--- ... ---) and use the markdown body as the system prompt.
@@ -36,15 +37,8 @@ const ROUNDS = Number(arg("rounds", 3));
 const THRESHOLD = Number(arg("threshold", 80));
 const OUT = arg("out", "cv.final.md");
 
-async function claude(system, user, maxTokens) {
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: MODEL, max_tokens: maxTokens, temperature: 0.3, system, messages: [{ role: "user", content: user }] }),
-  });
-  if (!r.ok) throw new Error(`Anthropic ${r.status}: ${(await r.text()).slice(0, 200)}`);
-  return (await r.json()).content[0].text;
-}
+// Provider-agnostic (lib/llm): swap model via CV_MODEL / LLM_PROVIDER without touching this file.
+const claude = (system, user, maxTokens) => callText({ system, user, model: MODEL, maxTokens, temperature: 0.3 });
 const parseJson = (t) => { const f = t.match(/```(?:json)?\s*([\s\S]*?)```/); return JSON.parse(f ? f[1] : t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1)); };
 const stripFences = (t) => { const f = t.match(/```(?:markdown|md)?\s*([\s\S]*?)```/); return (f ? f[1] : t).trim(); };
 

@@ -35,6 +35,8 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS want_score INT;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS qual_score INT;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS enriched_at TIMESTAMPTZ;
 ALTER TABLE jobs ADD COLUMN IF NOT EXISTS salary_usd_year INT;
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS facet_sims JSONB;   -- per-facet cosine similarity (multi-query gate)
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS best_facet TEXT;    -- highest-matching positive facet (dashboard transparency)
 CREATE INDEX IF NOT EXISTS jobs_score_idx   ON jobs (score DESC);
 CREATE INDEX IF NOT EXISTS jobs_source_idx  ON jobs (source);
 CREATE INDEX IF NOT EXISTS jobs_key_idx     ON jobs (job_key);
@@ -72,7 +74,7 @@ CREATE TABLE IF NOT EXISTS companies (
 DROP VIEW IF EXISTS jobs_light;
 CREATE VIEW jobs_light AS
   SELECT source, ext_id, job_key, title, company, location, url, salary, salary_usd_year, posted,
-         easy_apply, score, eligibility, breakdown, matched, flags, semantic,
+         easy_apply, score, eligibility, breakdown, matched, flags, semantic, best_facet,
          enrich, want_score, qual_score,
          (raw_text IS NOT NULL AND length(raw_text) > 0) AS has_detail,
          (enrich IS NOT NULL) AS enriched,

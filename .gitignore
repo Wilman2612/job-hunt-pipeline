@@ -10,6 +10,9 @@ profile/digest.md
 profile/target.json
 profile/learned.json
 profile/cv_base.md
+profile/facets.json
+profile/facets.handtuned.json
+profile/embed.txt
 
 # Salidas con datos personales (CVs generados/refinados)
 applications/

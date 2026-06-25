@@ -7,14 +7,18 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { q, ROOT, closePool } from "../lib/store.mjs";
+import { callJson, hasKey, DEFAULT_MODEL, PROVIDER } from "../lib/llm.mjs";
 
-const KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.ANALYZE_MODEL || "claude-3-5-sonnet-latest";
-if (!KEY) { console.error("Missing ANTHROPIC_API_KEY in .env"); process.exit(1); }
+// Model is swappable (lib/llm): ANALYZE_MODEL overrides; else the provider default.
+const MODEL = process.env.ANALYZE_MODEL || DEFAULT_MODEL;
+if (!hasKey()) { console.error(`Missing API key for LLM_PROVIDER=${PROVIDER} (set OPENAI_API_KEY or ANTHROPIC_API_KEY in .env)`); process.exit(1); }
 
 const args = process.argv.slice(2);
 const LIMIT = Number(args.find((a) => a.startsWith("--limit="))?.split("=")[1] || 99999);
 const CONC = Number(args.find((a) => a.startsWith("--conc="))?.split("=")[1] || 4);
+// Multi-query gate floor: only spend the LLM on postings whose gate score clears the productive zone.
+// 0.48 ≈ 95%+ recall of good jobs while cutting ~80% of the pool (see profile/facets.json + README).
+const FLOOR = Number(args.find((a) => a.startsWith("--floor="))?.split("=")[1] || 0.48);
 
 const digest = await readFile(path.join(ROOT, "profile/digest.md"), "utf8");
 const spec = await readFile(path.join(ROOT, "profile/enrich-spec.md"), "utf8");
@@ -27,13 +31,6 @@ ${digest}
 ANALYSIS SPEC (follow it to the letter; include ALL keys):
 ${spec}`;
 
-// Extracts the first JSON object from the text (Claude sometimes wraps it in prose or fences).
-function parseJson(text) {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const raw = fenced ? fenced[1] : text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1);
-  return JSON.parse(raw);
-}
-
 async function analyze(job) {
   const user = `POSTING (source=${job.source}):
 TITLE: ${job.title}
@@ -41,41 +38,34 @@ COMPANY: ${job.company}
 LOCATION: ${job.location}
 DESCRIPTION:
 ${(job.raw_text || "").slice(0, 9000)}`;
-  const r = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-api-key": KEY, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 1500,
-      temperature: 0.2,
-      system: SYSTEM,
-      messages: [{ role: "user", content: user }],
-    }),
-  });
-  if (!r.ok) throw new Error(`Anthropic ${r.status}: ${(await r.text()).slice(0, 150)}`);
-  return parseJson((await r.json()).content[0].text);
+  return callJson({ system: SYSTEM, user, model: MODEL, maxTokens: 1500, temperature: 0.2 });
 }
 
 const clampInt = (v) => (v == null || isNaN(+v) ? null : Math.max(0, Math.min(100, Math.round(+v))));
 
 async function save(job, e) {
+  // Record provenance so "which model analyzed this?" is never ambiguous again.
+  const enriched = { ...e, _model: MODEL };
   await q(
     `UPDATE jobs SET enrich=$3, want_score=$4, qual_score=$5, enriched_at=now() WHERE source=$1 AND ext_id=$2`,
-    [job.source, job.ext_id, JSON.stringify(e), clampInt(e.want), clampInt(e.qual)]
+    [job.source, job.ext_id, JSON.stringify(enriched), clampInt(e.want), clampInt(e.qual)]
   );
 }
 
-// Queue: eligible, with text, not yet analyzed, best-first by semantic similarity.
+// Queue: eligible, with text, gate-cleared, not yet analyzed, best-first by gate score.
+// The FLOOR realizes "don't analyze the far ones": postings below it are left unanalyzed (not deleted)
+// — they stay visible in the dashboard, just not worth the LLM. Run scoring/embed.mjs first so semantic exists.
 const { rows } = await q(
   `SELECT source, ext_id, title, company, location, raw_text FROM jobs
    WHERE enrich IS NULL AND raw_text IS NOT NULL AND length(raw_text) > 40
      AND (eligibility->>'eligibleForPeru')='true'
+     AND semantic >= $2
    ORDER BY semantic DESC NULLS LAST, score DESC NULLS LAST
    LIMIT $1`,
-  [LIMIT]
+  [LIMIT, FLOOR]
 );
 
-console.error(`Queue: ${rows.length} eligible postings not yet analyzed. Model: ${MODEL}, concurrency: ${CONC}.`);
+console.error(`Queue: ${rows.length} eligible + gated (semantic>=${FLOOR}) not yet analyzed. ${PROVIDER}/${MODEL}, concurrency: ${CONC}.`);
 let done = 0, fail = 0;
 const queue = [...rows];
 async function worker() {
